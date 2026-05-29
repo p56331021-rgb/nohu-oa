@@ -311,7 +311,7 @@ function DaiP({dais,emps,onAdd,onDel}){const t=useT();const[nd,sND]=useState("")
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8}}>{dais.map(d=>{const c=emps.filter(e=>e.dai===d&&e.status==="active").length;return<div key={d}style={{background:Cl.card,borderRadius:12,padding:"12px 14px",border:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontWeight:800,color:"#06b6d4",fontFamily:FM}}>🎰 {d}</div><div style={{fontSize:10,color:Cl.mu,marginTop:2}}>{c} {t.daiW}</div></div>{c===0&&<Btn v="danger"sm onClick={()=>onDel(d)}>🗑</Btn>}</div>})}</div></div>}
 
 // --- Account Mgmt ---
-function AcctP({accts,emps,cur,onReset}){const t=useT();const isA=cur.role==="admin";const v=accts.filter(a=>{const e=emps.find(x=>x.id===a.empId);return e&&(isA||e.role!=="admin")});
+function AcctP({accts,emps,cur,onReset}){const t=useT();const isA=cur.role==="admin";const v=accts.filter(a=>{const e=emps.find(x=>x.id===a.empId);return e&&(isA||e.role!=="admin")}).sort((a,b)=>{const ea=emps.find(x=>x.id===a.empId);const eb=emps.find(x=>x.id===b.empId);const la=(ROLES[ea?.role]||{}).lv||0;const lb=(ROLES[eb?.role]||{}).lv||0;return lb-la});
 return<div><h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.acctT}</h2><p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.acctS}</p>
 <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}><thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>{[t.acctU,t.acctP,t.acctE,t.acctR,""].map((h,i)=><th key={i}style={{padding:"9px 12px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
 <tbody>{v.map(a=>{const e=emps.find(x=>x.id===a.empId);return<tr key={a.username}style={{borderBottom:`1px solid ${Cl.bdr}06`}}><td style={{padding:"8px 12px",fontFamily:FM,fontSize:11,color:Cl.acL,fontWeight:600}}>{a.username}</td><td style={{padding:"8px 12px",fontFamily:FM,fontSize:11,color:Cl.mu}}>{"•".repeat(a.password.length)}</td><td style={{padding:"8px 12px"}}>{e&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av name={e.name}role={e.role}size={22}/><span style={{fontSize:10,color:Cl.tx}}>{e.name}</span></div>}</td><td style={{padding:"8px 12px"}}>{e&&<Bdg role={e.role}/>}</td><td style={{padding:"8px 12px"}}><Btn v="warn"sm onClick={()=>onReset(a.username)}>{t.resetP}</Btn></td></tr>})}</tbody></table></div></div>}
@@ -350,7 +350,9 @@ return<div>
 function App(){
   const[lang,setLang]=useState("vi");
   const[loading,sL]=useState(true);const[err,sErr]=useState("");
-  const[user,sUser]=useState(null);
+  // Khôi phục phiên đăng nhập từ localStorage
+  const[user,sUser]=useState(()=>{try{const s=localStorage.getItem("nohu_session");return s?JSON.parse(s):null}catch{return null}});
+  const setUser=(u)=>{sUser(u);try{if(u)localStorage.setItem("nohu_session",JSON.stringify(u));else localStorage.removeItem("nohu_session")}catch{}};
   const[emps,sEmps]=useState([]);const[accts,sAccts]=useState([]);
   const[leaves,sLvs]=useState([]);const[dais,sDais]=useState([]);
   const[page,sPage]=useState("dashboard");
@@ -388,7 +390,7 @@ function App(){
 
   if(err)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:Cl.bg,fontFamily:Fo,padding:20}}><div style={{background:Cl.sf,borderRadius:16,padding:32,maxWidth:500,textAlign:"center",border:`1px solid ${Cl.no}30`}}><div style={{fontSize:40,marginBottom:12}}>⚠️</div><div style={{color:Cl.no,fontSize:14,fontWeight:700,marginBottom:8}}>Lỗi kết nối</div><div style={{color:Cl.mu,fontSize:12,lineHeight:1.6,marginBottom:16}}>{err}</div><div style={{color:Cl.mu,fontSize:11,background:Cl.bg,padding:12,borderRadius:8,fontFamily:FM,textAlign:"left"}}>1. Mở file index.html<br/>2. Thay YOUR_SUPABASE_URL<br/>3. Thay YOUR_SUPABASE_ANON_KEY</div></div></div>;
 
-  if(!user)return<LC.Provider value={lang}><div style={{position:"relative"}}><div style={{position:"absolute",top:16,right:16,zIndex:10}}><LangSw lang={lang}setLang={setLang}/></div><LoginP onLogin={a=>{sUser(a);sPage("dashboard")}}accts={accts}emps={emps}/></div></LC.Provider>;
+  if(!user)return<LC.Provider value={lang}><div style={{position:"relative"}}><div style={{position:"absolute",top:16,right:16,zIndex:10}}><LangSw lang={lang}setLang={setLang}/></div><LoginP onLogin={a=>{setUser(a);sPage("dashboard")}}accts={accts}emps={emps}/></div></LC.Provider>;
 
   const menu=[{key:"dashboard",icon:"📊",label:t.dashboard},{key:"employees",icon:"👥",label:t.employees},{key:"leaves",icon:"🏖️",label:t.leaves},...(canMg(cur.role)?[{key:"accounts",icon:"🔑",label:t.acctMg}]:[]),...(isA?[{key:"perms",icon:"🔐",label:t.perms},{key:"dais",icon:"🎰",label:t.daiMg}]:[])];
 
@@ -397,7 +399,7 @@ function App(){
       <div style={{padding:col?"14px 8px":"14px 14px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",alignItems:"center",gap:8}}><div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#f59e0b,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:"#fff",fontFamily:FM}}>N</div>{!col&&<div><div style={{fontSize:13,fontWeight:900,color:Cl.tx}}>NOHU</div><div style={{fontSize:8,color:Cl.mu,fontWeight:600}}>{t.appSub}</div></div>}</div>
       <div style={{padding:"8px 5px",flex:1}}>{menu.map(item=>{const act=page===item.key;return<div key={item.key}onClick={()=>sPage(item.key)}style={{display:"flex",alignItems:"center",gap:7,padding:col?"8px 0":"8px 10px",justifyContent:col?"center":"flex-start",borderRadius:7,marginBottom:1,cursor:"pointer",background:act?`${Cl.ac}15`:"transparent",color:act?Cl.acL:Cl.mu,fontWeight:act?600:500,fontSize:11}}onMouseEnter={e=>{if(!act)e.currentTarget.style.background=Cl.card}}onMouseLeave={e=>{if(!act)e.currentTarget.style.background="transparent"}}><span style={{fontSize:13}}>{item.icon}</span>{!col&&item.label}</div>})}</div>
       <div style={{padding:col?"10px 5px":"10px 10px",borderTop:`1px solid ${Cl.bdr}`}}><div style={{display:"flex",alignItems:"center",gap:6,justifyContent:col?"center":"flex-start"}}><Av name={cur.name}role={cur.role}size={26}/>{!col&&<div style={{flex:1,minWidth:0}}><div style={{fontSize:10,fontWeight:600,color:Cl.tx,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cur.name}</div><Bdg role={cur.role}/></div>}</div>
-      <button onClick={()=>sUser(null)}style={{marginTop:6,width:"100%",padding:"5px 0",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:"transparent",color:Cl.no,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:Fo}}>{col?"🚪":t.logout}</button></div>
+      <button onClick={()=>setUser(null)}style={{marginTop:6,width:"100%",padding:"5px 0",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:"transparent",color:Cl.no,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:Fo}}>{col?"🚪":t.logout}</button></div>
       <div style={{padding:4,borderTop:`1px solid ${Cl.bdr}`,textAlign:"center"}}><button onClick={()=>sCol(!col)}style={{background:"none",border:"none",color:Cl.mu,cursor:"pointer",fontSize:11}}>{col?"▶":"◀"}</button></div>
     </div>
     <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column"}}>

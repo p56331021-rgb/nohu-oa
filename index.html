@@ -49,7 +49,9 @@ const ROLES={
 };
 const rl=(r,lg)=>(ROLES[r]?.label[lg]||r);
 const NATS=["Việt Nam","Malaysia","Myanmar","Philippines","Trung Quốc","Campuchia","Thái Lan","Indonesia","Khác"];
-const SH={0:{color:"#555",icon:"—",label:{vi:"Không phân ca",zh:"未排班",en:"No shift"}},1:{color:"#f59e0b",icon:"🌅",label:{vi:"Ca 1",zh:"班次1",en:"Shift 1"}},2:{color:"#8b5cf6",icon:"🌙",label:{vi:"Ca 2",zh:"班次2",en:"Shift 2"}},3:{color:"#06b6d4",icon:"☀️",label:{vi:"Ca sáng",zh:"早班",en:"Morning"}},4:{color:"#ec4899",icon:"🌃",label:{vi:"Ca tối",zh:"晚班",en:"Evening"}}};
+const SH={0:{color:"#555",icon:"2014",label:{vi:"B1ecf tr1ed1ng",zh:"672a639273ed",en:"None"}},1:{color:"#f59e0b",icon:"D83cDf05",label:{vi:"Ca 1 (7h-19h)",zh:"73ed1(7-19)",en:"Shift 1 (7-19)"}},2:{color:"#8b5cf6",icon:"D83cDf19",label:{vi:"Ca 2 (19h-7h)",zh:"73ed2(19-7)",en:"Shift 2 (19-7)"}},3:{color:"#06b6d4",icon:"2600Fe0f",label:{vi:"Ca s00e1ng",zh:"65e973ed",en:"Morning"}},4:{color:"#ec4899",icon:"D83cDf03",label:{vi:"Ca t1ed1i",zh:"665a73ed",en:"Evening"}}};
+const getVNMonth=()=>{const d=new Date();const utc=d.getTime()+d.getTimezoneOffset()*60000;const vn=new Date(utc+7*3600000);return vn.getMonth()+1};
+const getVNMonthKey=()=>{const d=new Date();const utc=d.getTime()+d.getTimezoneOffset()*60000;const vn=new Date(utc+7*3600000);return vn.getFullYear()+"-"+String(vn.getMonth()+1).padStart(2,"0")};
 const canMg=r=>r==="admin"||r==="manager"||r==="leader";
 const td=()=>new Date().toISOString().split("T")[0];
 const ini=n=>(n||"?").split(" ").map(w=>(w||"")[0]||"").join("").toUpperCase().slice(0,3)||"?";
@@ -98,6 +100,26 @@ const DB={
   async deleteDai(name){await supabase.from("dais").delete().eq("name",name)},
 
   async nextEmpId(){const{data}=await supabase.from("employees").select("id").order("id",{ascending:false}).limit(1);if(!data||!data.length)return"E001";const num=parseInt(data[0].id.slice(1))||0;return`E${String(num+1).padStart(3,"0")}`},
+
+  async getSetting(key){try{const{data}=await supabase.from("settings").select("value").eq("key",key).single();return data?.value||""}catch{return""}},
+  async setSetting(key,value){await supabase.from("settings").upsert({key,value},{onConflict:"key"})},
+
+  // Đảo ca tự động: Ca 1 ↔ Ca 2
+  async autoSwapShifts(){
+    const curMonth=getVNMonthKey();
+    const lastSwap=await this.getSetting("last_swap_month");
+    if(lastSwap===curMonth)return false; // Đã đảo tháng này rồi
+    if(!lastSwap){await this.setSetting("last_swap_month",curMonth);return false} // Lần đầu, chỉ lưu
+    // Đảo Ca 1 ↔ Ca 2 cho tất cả nhân viên
+    const{data:emps}=await supabase.from("employees").select("id,shift").in("shift",[1,2]);
+    if(emps&&emps.length){
+      for(const e of emps){
+        await supabase.from("employees").update({shift:e.shift===1?2:1}).eq("id",e.id);
+      }
+    }
+    await this.setSetting("last_swap_month",curMonth);
+    return true; // Đã đảo ca
+  },
 
   // Convert DB row → app format
   toEmp(r){return{id:r.id,name:r.name||"",empCode:r.emp_code||"",phone:r.phone||"",role:r.role||"staff",dai:r.dai||"—",shift:r.shift||0,status:r.status||"active",joinDate:r.join_date||"",nationality:r.nationality||"",transferDate:r.transfer_date||""}},
@@ -334,8 +356,10 @@ function App(){
   const[page,sPage]=useState("dashboard");
   const[editM,sEM]=useState(null);const[addM,sAM]=useState(false);const[col,sCol]=useState(false);
 
+  const[swapped,setSw]=useState(false);
   const reload=async()=>{
     try{
+      const didSwap=await DB.autoSwapShifts();if(didSwap)setSw(true);
       const[eR,aR,lR,dR]=await Promise.all([DB.loadEmps(),DB.loadAccts(),DB.loadLeaves(),DB.loadDais()]);
       sEmps((eR||[]).map(DB.toEmp));sAccts((aR||[]).map(DB.toAcct));sLvs((lR||[]).map(DB.toLv));sDais(dR&&dR.length?dR:["NOHU","GO99","TT88","MMOO","789P","UY88"]);sL(false);
     }catch(e){sErr("Không kết nối được Supabase. Kiểm tra lại URL và Key!");sL(false);console.error(e)}

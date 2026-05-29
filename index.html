@@ -99,7 +99,8 @@ vi:{
   logout:"🚪 Đăng xuất",loading:"Đang tải...",delCfm:"Bạn có chắc muốn xoá?",
   penT:"Lỗi / KPI",addPen:"＋ Lỗi",penKpi:"KPI trừ",penReason:"Lý do lỗi",penDate:"Ngày",penList:"DS lỗi",noPen:"Không có lỗi",
   dayOff:"Nghỉ ngày",close:"Đóng",exportExcel:"📥 Xuất Excel",batchAdd:"Thêm nghỉ hàng loạt",batchDays:"Các ngày (phân cách bằng dấu .)",batchMonth:"Tháng",batchPreview:"Xem trước",batchConfirm:"Thêm",
-  shiftSwapped:"🔄 Ca đã được đảo tự động đầu tháng (Ca 1 ↔ Ca 2)"
+  shiftSwapped:"🔄 Ca đã được đảo tự động đầu tháng (Ca 1 ↔ Ca 2)",
+  salT:"Bảng lương",salS:"Tính lương theo tháng",salCfg:"⚙️ Cấu hình lương theo quốc tịch",salBase:"Lương cơ bản",salPerDay:"Trừ/ngày nghỉ",salPerKpi:"Trừ/KPI",salSave:"💾 Lưu cấu hình",salSaved:"Đã lưu!",salCalc:"📊 Bảng lương tháng",salNet:"Thực nhận",salDays:"Ngày nghỉ",salKpi:"KPI trừ",salDeductDay:"Trừ nghỉ",salDeductKpi:"Trừ KPI",salTotal:"Tổng trừ",salExport:"📥 Xuất Excel lương",salNoConfig:"Chưa cấu hình lương cho quốc tịch này",salCurrency:"₫",salMySalary:"💰 Lương của tôi"
 },
 zh:{
   appSub:"客服管理系统",login:"登录",loginBtn:"登录 →",logging:"验证中...",username:"用户名",password:"密码",loginErr:"用户名或密码错误！",
@@ -130,7 +131,8 @@ zh:{
   logout:"🚪 退出",loading:"加载中...",delCfm:"确定删除？",
   penT:"扣分 / KPI",addPen:"＋ 扣分",penKpi:"扣KPI",penReason:"扣分原因",penDate:"日期",penList:"扣分列表",noPen:"无扣分",
   dayOff:"休假日",close:"关闭",exportExcel:"📥 导出Excel",batchAdd:"批量添加休假",batchDays:"日期(用.分隔)",batchMonth:"月份",batchPreview:"预览",batchConfirm:"添加",
-  shiftSwapped:"🔄 月初已自动轮换班次（班1 ↔ 班2）"
+  shiftSwapped:"🔄 月初已自动轮换班次（班1 ↔ 班2）",
+  salT:"工资表",salS:"按月计算工资",salCfg:"⚙️ 按国籍配置工资",salBase:"基本工资",salPerDay:"扣/休假日",salPerKpi:"扣/KPI",salSave:"💾 保存配置",salSaved:"已保存！",salCalc:"📊 月度工资表",salNet:"实发",salDays:"休假天数",salKpi:"扣KPI",salDeductDay:"休假扣除",salDeductKpi:"KPI扣除",salTotal:"总扣除",salExport:"📥 导出工资Excel",salNoConfig:"未配置该国籍工资",salCurrency:"₫",salMySalary:"💰 我的工资"
 },
 en:{
   appSub:"CS MANAGEMENT",login:"Login",loginBtn:"Login →",logging:"Verifying...",username:"Username",password:"Password",loginErr:"Wrong credentials!",
@@ -161,7 +163,8 @@ en:{
   logout:"🚪 Logout",loading:"Loading...",delCfm:"Confirm delete?",
   penT:"Penalties / KPI",addPen:"＋ Penalty",penKpi:"KPI Deduct",penReason:"Reason",penDate:"Date",penList:"Penalty List",noPen:"No penalties",
   dayOff:"Day Off",close:"Close",exportExcel:"📥 Export Excel",batchAdd:"Batch add leave",batchDays:"Days (separated by .)",batchMonth:"Month",batchPreview:"Preview",batchConfirm:"Add",
-  shiftSwapped:"🔄 Shifts auto-swapped at month start (Shift 1 ↔ Shift 2)"
+  shiftSwapped:"🔄 Shifts auto-swapped at month start (Shift 1 ↔ Shift 2)",
+  salT:"Payroll",salS:"Monthly salary calculation",salCfg:"⚙️ Salary config by nationality",salBase:"Base Salary",salPerDay:"Deduct/day off",salPerKpi:"Deduct/KPI",salSave:"💾 Save Config",salSaved:"Saved!",salCalc:"📊 Monthly Payroll",salNet:"Net Pay",salDays:"Days Off",salKpi:"KPI Deduct",salDeductDay:"Leave Deduct",salDeductKpi:"KPI Deduct",salTotal:"Total Deduct",salExport:"📥 Export Payroll",salNoConfig:"No salary config for this nationality",salCurrency:"₫",salMySalary:"💰 My Salary"
 }
 };
 const LC=createContext("vi");
@@ -218,6 +221,10 @@ const DB={
   toAcct(r){return{username:r.username,password:r.password,empId:r.emp_id}},
   toLv(r){return{empId:r.emp_id,date:r.date,reason:r.reason,addedBy:r.added_by}},
   toPen(r){return{id:r.id,empId:r.emp_id,date:r.date,kpi:r.kpi_deduction,reason:r.reason}},
+
+  // Salary config: stored as JSON in settings table, key = "salary_config"
+  async loadSalaryConfig(){const raw=await this.getSetting("salary_config");try{return raw?JSON.parse(raw):{}}catch{return{}}},
+  async saveSalaryConfig(cfg){await this.setSetting("salary_config",JSON.stringify(cfg))},
 };
 
 // ============ UI COMPONENTS ============
@@ -290,14 +297,31 @@ function DateInp({label,value,onChange,...p}){
 // Custom month picker with ← → navigation
 function MonthNav({value,onChange}){
   const[y,m]=value.split("-").map(Number);
+  const[open,sOpen]=useState(false);const[selY,sSelY]=useState(y);
+  const ref=useRef(null);
+  useEffect(()=>{const h=e=>{if(ref.current&&!ref.current.contains(e.target))sOpen(false)};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h)},[]);
   const prev=()=>{const nm=m===1?12:m-1;const ny=m===1?y-1:y;onChange(`${ny}-${String(nm).padStart(2,"0")}`)};
   const next=()=>{const nm=m===12?1:m+1;const ny=m===12?y+1:y;onChange(`${ny}-${String(nm).padStart(2,"0")}`)};
+  const pick=(mo)=>{onChange(`${selY}-${String(mo).padStart(2,"0")}`);sOpen(false)};
+  const mShort={vi:["","Th1","Th2","Th3","Th4","Th5","Th6","Th7","Th8","Th9","Th10","Th11","Th12"],zh:["","1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],en:["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]};
   const mNames={vi:["","Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"],zh:["","1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],en:["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]};
   const lg=useContext(LC);const label=`${(mNames[lg]||mNames.vi)[m]} ${y}`;
-  return<div style={{display:"flex",alignItems:"center",gap:0,borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,overflow:"hidden"}}>
-    <button onClick={prev}style={{padding:"6px 10px",background:"transparent",border:"none",color:Cl.mu,cursor:"pointer",fontSize:13,fontWeight:700,borderRight:`1px solid ${Cl.bdr}`}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>◀</button>
-    <div style={{padding:"6px 14px",fontSize:12,fontWeight:700,color:Cl.tx,fontFamily:Fo,minWidth:120,textAlign:"center"}}>{label}</div>
-    <button onClick={next}style={{padding:"6px 10px",background:"transparent",border:"none",color:Cl.mu,cursor:"pointer",fontSize:13,fontWeight:700,borderLeft:`1px solid ${Cl.bdr}`}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>▶</button>
+  return<div ref={ref}style={{position:"relative",display:"inline-block"}}>
+    <div style={{display:"flex",alignItems:"center",gap:0,borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,overflow:"hidden"}}>
+      <button onClick={prev}style={{padding:"6px 10px",background:"transparent",border:"none",color:Cl.mu,cursor:"pointer",fontSize:13,fontWeight:700,borderRight:`1px solid ${Cl.bdr}`}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>◀</button>
+      <div onClick={()=>{sSelY(y);sOpen(!open)}}style={{padding:"6px 14px",fontSize:12,fontWeight:700,color:Cl.tx,fontFamily:Fo,minWidth:120,textAlign:"center",cursor:"pointer",userSelect:"none"}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{label} ▾</div>
+      <button onClick={next}style={{padding:"6px 10px",background:"transparent",border:"none",color:Cl.mu,cursor:"pointer",fontSize:13,fontWeight:700,borderLeft:`1px solid ${Cl.bdr}`}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>▶</button>
+    </div>
+    {open&&<div className="slide-in"style={{position:"absolute",top:"100%",left:0,marginTop:4,background:Cl.sf,border:`1px solid ${Cl.bdr}`,borderRadius:10,padding:10,zIndex:100,boxShadow:"0 8px 24px rgba(0,0,0,.4)",width:220}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <button onClick={()=>sSelY(selY-1)}style={{background:"none",border:"none",color:Cl.mu,cursor:"pointer",fontSize:12,fontWeight:700}}>◀</button>
+        <span style={{fontSize:13,fontWeight:800,color:Cl.tx,fontFamily:FM}}>{selY}</span>
+        <button onClick={()=>sSelY(selY+1)}style={{background:"none",border:"none",color:Cl.mu,cursor:"pointer",fontSize:12,fontWeight:700}}>▶</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:4}}>
+        {[1,2,3,4,5,6,7,8,9,10,11,12].map(mo=>{const act=mo===m&&selY===y;return<button key={mo}onClick={()=>pick(mo)}style={{padding:"6px 4px",borderRadius:6,border:act?`1px solid ${Cl.ac}`:`1px solid transparent`,background:act?`${Cl.ac}20`:"transparent",color:act?Cl.acL:Cl.tx,fontSize:11,fontWeight:act?700:500,cursor:"pointer",fontFamily:Fo,transition:"all .1s"}}onMouseEnter={e=>{if(!act)e.currentTarget.style.background=Cl.card}}onMouseLeave={e=>{if(!act)e.currentTarget.style.background=act?`${Cl.ac}20`:"transparent"}}>{(mShort[lg]||mShort.vi)[mo]}</button>})}
+      </div>
+    </div>}
   </div>
 }
 
@@ -481,6 +505,17 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
   // Month penalties
   const mPens=pens.filter(p=>p.date&&p.date.startsWith(month));
 
+  // CSKH personal data
+  const isStaffView=cur.role==="staff";
+  const nextMo=useMemo(()=>{const nm=m===12?1:m+1;const ny=m===12?y+1:y;return`${ny}-${String(nm).padStart(2,"0")}`},[y,m]);
+  const myLeavesThisMonth=useMemo(()=>leaves.filter(l=>l.empId===cur.id&&l.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date)),[leaves,cur.id,month]);
+  const myLeavesNextMonth=useMemo(()=>leaves.filter(l=>l.empId===cur.id&&l.date.startsWith(nextMo)).sort((a,b)=>a.date.localeCompare(b.date)),[leaves,cur.id,nextMo]);
+  const myPensThisMonth=useMemo(()=>pens.filter(p=>p.empId===cur.id&&p.date&&p.date.startsWith(month)),[pens,cur.id,month]);
+  const myTotalKpi=myPensThisMonth.reduce((s,p)=>s+(p.kpi||0),0);
+  const mNamesShort={vi:["","Th1","Th2","Th3","Th4","Th5","Th6","Th7","Th8","Th9","Th10","Th11","Th12"],zh:["","1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],en:["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]};
+  const nextMLabel=`${(mNamesShort[lg]||mNamesShort.vi)[m===12?1:m+1]}/${m===12?y+1:y}`;
+  const curMLabel=`${(mNamesShort[lg]||mNamesShort.vi)[m]}/${y}`;
+
   return<div className="fade-in">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
       <div><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.leaveMg}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{t.mo} {m}/{y} — {mL.length} {t.lvCnt}</p></div>
@@ -489,6 +524,30 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
         <Btn onClick={()=>{sAF({empId:vE.find(e=>e.status==="active")?.id||"",month:month,days:"",reason:t.reasons[0]});sAM(true)}}>{t.addLv}</Btn>
       </div>}
     </div>
+
+    {/* CSKH Personal Summary */}
+    {isStaffView&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+      <div style={{background:Cl.card,borderRadius:12,padding:"14px 16px",border:`1px solid ${Cl.bdr}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><span style={{fontSize:14}}>🏖️</span><span style={{fontSize:11,fontWeight:700,color:Cl.tx}}>Nghỉ {curMLabel}</span></div>
+        <div style={{fontSize:22,fontWeight:800,color:Cl.tx,fontFamily:FM,marginBottom:6}}>{myLeavesThisMonth.length} <span style={{fontSize:11,fontWeight:500,color:Cl.mu}}>ngày</span></div>
+        {myLeavesThisMonth.length>0?<div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+          {myLeavesThisMonth.map(l=><span key={l.date}style={{padding:"2px 7px",borderRadius:5,background:`${Cl.no}12`,color:Cl.no,fontSize:10,fontWeight:600,border:`1px solid ${Cl.no}20`}}>{fmt(l.date).slice(0,5)}</span>)}
+        </div>:<div style={{fontSize:10,color:Cl.ok}}>Không nghỉ ✅</div>}
+      </div>
+      <div style={{background:Cl.card,borderRadius:12,padding:"14px 16px",border:`1px solid ${Cl.bdr}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><span style={{fontSize:14}}>📅</span><span style={{fontSize:11,fontWeight:700,color:Cl.tx}}>Nghỉ {nextMLabel}</span></div>
+        <div style={{fontSize:22,fontWeight:800,color:Cl.tx,fontFamily:FM,marginBottom:6}}>{myLeavesNextMonth.length} <span style={{fontSize:11,fontWeight:500,color:Cl.mu}}>ngày</span></div>
+        {myLeavesNextMonth.length>0?<div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+          {myLeavesNextMonth.map(l=><span key={l.date}style={{padding:"2px 7px",borderRadius:5,background:`${Cl.wr}12`,color:Cl.wr,fontSize:10,fontWeight:600,border:`1px solid ${Cl.wr}20`}}>{fmt(l.date).slice(0,5)}</span>)}
+        </div>:<div style={{fontSize:10,color:Cl.ok}}>Chưa có lịch nghỉ</div>}
+      </div>
+      <div style={{background:Cl.card,borderRadius:12,padding:"14px 16px",border:`1px solid ${Cl.bdr}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><span style={{fontSize:14}}>⚠️</span><span style={{fontSize:11,fontWeight:700,color:Cl.tx}}>KPI bị trừ {curMLabel}</span></div>
+        <div style={{fontSize:22,fontWeight:800,color:myTotalKpi>0?Cl.no:Cl.ok,fontFamily:FM,marginBottom:6}}>{myTotalKpi>0?`-${myTotalKpi}`:"0"} <span style={{fontSize:11,fontWeight:500,color:Cl.mu}}>KPI</span></div>
+        {myPensThisMonth.length>0?<div>{myPensThisMonth.map((p,i)=><div key={i}style={{fontSize:10,color:Cl.mu,marginBottom:2}}>• {fmt(p.date)} — <span style={{color:Cl.no}}>-{p.kpi}</span> {p.reason}</div>)}</div>
+        :<div style={{fontSize:10,color:Cl.ok}}>Không có lỗi ✅</div>}
+      </div>
+    </div>}
 
     {/* Filters */}
     <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center"}}>
@@ -672,6 +731,142 @@ function AcctP({accts,emps,cur,onReset}){
   </div>;
 }
 
+// ============ SALARY / PAYROLL ============
+function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
+  const t=useT();const lg=useContext(LC);const mg=canMg(cur.role);const isA=cur.role==="admin";
+  const isStaff=cur.role==="staff";
+  const[month,sM]=useState(td().slice(0,7));
+  const[y,m]=month.split("-").map(Number);
+  const[cfg,sCfg]=useState(salCfg||{});
+  const[saving,sSaving]=useState(false);
+
+  // Editable config
+  const handleCfg=(nat,field,val)=>{
+    const n={...cfg};if(!n[nat])n[nat]={base:0,perDay:0,perKpi:0};
+    n[nat][field]=Number(val)||0;sCfg(n);
+  };
+  const saveCfg=async()=>{sSaving(true);await onSaveCfg(cfg);sSaving(false);alert(t.salSaved)};
+
+  // Format number with dots
+  const fmtN=(n)=>{if(!n&&n!==0)return"0";return Number(n).toLocaleString("vi-VN")};
+
+  // Calc salary for one employee in selected month
+  const calcSalary=(emp)=>{
+    const nat=emp.nationality||"Khác";
+    const c=cfg[nat];
+    if(!c||!c.base)return{base:0,days:0,kpiTotal:0,deductDay:0,deductKpi:0,net:0,configured:false};
+    const days=leaves.filter(l=>l.empId===emp.id&&l.date.startsWith(month)).length;
+    const kpiTotal=pens.filter(p=>p.empId===emp.id&&p.date&&p.date.startsWith(month)).reduce((s,p)=>s+(p.kpi||0),0);
+    const deductDay=days*(c.perDay||0);
+    const deductKpi=kpiTotal*(c.perKpi||0);
+    const net=Math.max(0,c.base-deductDay-deductKpi);
+    return{base:c.base,days,kpiTotal,deductDay,deductKpi,net,configured:true};
+  };
+
+  // Staff list to show
+  const staffList=isStaff?emps.filter(e=>e.id===cur.id):emps.filter(e=>{
+    if(e.role!=="staff")return false;
+    if(!isA&&e.role==="admin")return false;
+    return e.status==="active";
+  });
+
+  // Export payroll Excel
+  const exportPayroll=()=>{
+    const rows=staffList.map(e=>{const s=calcSalary(e);return{
+      "Mã NV":e.empCode,"Tên":e.name,"Đài":e.dai,"Quốc tịch":e.nationality||"Khác",
+      "Ca":SH[e.shift]?.label[lg]||"—","Lương cơ bản":s.base,
+      "Ngày nghỉ":s.days,"Trừ nghỉ":s.deductDay,"KPI trừ":s.kpiTotal,"Trừ KPI":s.deductKpi,
+      "Thực nhận":s.net
+    }});
+    const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Bảng lương");
+    XLSX.writeFile(wb,`NOHU_Luong_${month}.xlsx`);
+  };
+
+  return<div className="fade-in">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+      <div><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>💰 {t.salT}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{t.salS}</p></div>
+      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+        <MonthNav value={month} onChange={sM}/>
+        {mg&&<Btn v="warn" onClick={exportPayroll}>{t.salExport}</Btn>}
+      </div>
+    </div>
+
+    {/* CSKH personal salary card */}
+    {isStaff&&staffList.length>0&&(()=>{const me=staffList[0];const s=calcSalary(me);return<div style={{background:`linear-gradient(135deg,${Cl.ac}15,${Cl.card})`,borderRadius:14,padding:20,border:`1px solid ${Cl.ac}30`,marginBottom:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:Cl.tx,marginBottom:12}}>{t.salMySalary} — {t.mo} {m}/{y}</div>
+      {!s.configured?<div style={{color:Cl.wr,fontSize:12}}>{t.salNoConfig}</div>
+      :<div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
+        <div><div style={{fontSize:10,color:Cl.mu}}>{t.salBase}</div><div style={{fontSize:18,fontWeight:800,color:Cl.tx,fontFamily:FM}}>{fmtN(s.base)}</div></div>
+        <div><div style={{fontSize:10,color:Cl.mu}}>{t.salDays}</div><div style={{fontSize:18,fontWeight:800,color:s.days>0?Cl.no:Cl.ok,fontFamily:FM}}>{s.days}</div><div style={{fontSize:9,color:Cl.no}}>{s.deductDay>0?`-${fmtN(s.deductDay)}${t.salCurrency}`:""}</div></div>
+        <div><div style={{fontSize:10,color:Cl.mu}}>{t.salKpi}</div><div style={{fontSize:18,fontWeight:800,color:s.kpiTotal>0?Cl.no:Cl.ok,fontFamily:FM}}>{s.kpiTotal}</div><div style={{fontSize:9,color:Cl.no}}>{s.deductKpi>0?`-${fmtN(s.deductKpi)}${t.salCurrency}`:""}</div></div>
+        <div><div style={{fontSize:10,color:Cl.mu}}>{t.salTotal}</div><div style={{fontSize:18,fontWeight:800,color:Cl.no,fontFamily:FM}}>-{fmtN(s.deductDay+s.deductKpi)}</div></div>
+        <div><div style={{fontSize:10,color:Cl.mu}}>{t.salNet}</div><div style={{fontSize:22,fontWeight:900,color:Cl.ok,fontFamily:FM}}>{fmtN(s.net)}</div><div style={{fontSize:9,color:Cl.mu}}>{t.salCurrency}</div></div>
+      </div>}
+    </div>})()}
+
+    {/* Admin salary config */}
+    {isA&&<div style={{background:Cl.card,borderRadius:12,padding:16,border:`1px solid ${Cl.bdr}`,marginBottom:16}}>
+      <h4 style={{margin:"0 0 12px",fontSize:12,color:Cl.tx,fontWeight:700}}>{t.salCfg}</h4>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
+          <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
+            <th style={{padding:"8px 10px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu}}>🌏 Quốc tịch</th>
+            <th style={{padding:"8px 10px",textAlign:"right",fontSize:9,fontWeight:700,color:Cl.mu}}>{t.salBase} ({t.salCurrency})</th>
+            <th style={{padding:"8px 10px",textAlign:"right",fontSize:9,fontWeight:700,color:Cl.mu}}>{t.salPerDay} ({t.salCurrency})</th>
+            <th style={{padding:"8px 10px",textAlign:"right",fontSize:9,fontWeight:700,color:Cl.mu}}>{t.salPerKpi} ({t.salCurrency})</th>
+          </tr></thead>
+          <tbody>{NATS.filter(n=>n!=="Khác").concat(["Khác"]).map(nat=>{const c=cfg[nat]||{base:0,perDay:0,perKpi:0};return<tr key={nat}style={{borderBottom:`1px solid ${Cl.bdr}06`}}>
+            <td style={{padding:"6px 10px",fontSize:11,color:Cl.tx,fontWeight:600}}>{nat}</td>
+            <td style={{padding:"6px 10px"}}><input type="number"value={c.base||""}onChange={e=>handleCfg(nat,"base",e.target.value)}placeholder="0"style={{width:120,padding:"5px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/></td>
+            <td style={{padding:"6px 10px"}}><input type="number"value={c.perDay||""}onChange={e=>handleCfg(nat,"perDay",e.target.value)}placeholder="0"style={{width:100,padding:"5px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/></td>
+            <td style={{padding:"6px 10px"}}><input type="number"value={c.perKpi||""}onChange={e=>handleCfg(nat,"perKpi",e.target.value)}placeholder="0"style={{width:100,padding:"5px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/></td>
+          </tr>})}</tbody>
+        </table>
+      </div>
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}><Btn v="success" onClick={saveCfg} disabled={saving}>{saving?"...":t.salSave}</Btn></div>
+    </div>}
+
+    {/* Payroll table */}
+    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}>
+      <div style={{padding:"12px 14px",borderBottom:`1px solid ${Cl.bdr}`}}>
+        <h4 style={{margin:0,fontSize:12,color:Cl.tx,fontWeight:700}}>{t.salCalc} {m}/{y} ({staffList.length} NV)</h4>
+      </div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
+          <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
+            {[t.cName,t.cDai,t.cNat,t.salBase,t.salDays,t.salDeductDay,t.salKpi,t.salDeductKpi,t.salNet].map((h,i)=>
+              <th key={i}style={{padding:"9px 8px",textAlign:i>=3?"right":"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{staffList.map(e=>{const s=calcSalary(e);return<tr key={e.id}style={{borderBottom:`1px solid ${Cl.bdr}06`}}onMouseEnter={ev=>ev.currentTarget.style.background=`${Cl.ac}05`}onMouseLeave={ev=>ev.currentTarget.style.background=""}>
+            <td style={{padding:"7px 8px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><Av name={e.name}role={e.role}size={24}/><div><div style={{fontSize:11,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:9,color:Cl.mu}}>{e.empCode}</div></div></div></td>
+            <td style={{padding:"7px 8px"}}><DBdg dai={e.dai}/></td>
+            <td style={{padding:"7px 8px",fontSize:10,color:Cl.tx}}>{e.nationality||"—"}</td>
+            {!s.configured?<td colSpan={6}style={{padding:"7px 8px",fontSize:10,color:Cl.wr,textAlign:"center"}}>{t.salNoConfig}</td>
+            :<React.Fragment>
+              <td style={{padding:"7px 8px",fontSize:11,color:Cl.tx,fontFamily:FM,textAlign:"right"}}>{fmtN(s.base)}</td>
+              <td style={{padding:"7px 8px",fontSize:11,color:s.days>0?Cl.no:Cl.mu,fontFamily:FM,textAlign:"right",fontWeight:600}}>{s.days}</td>
+              <td style={{padding:"7px 8px",fontSize:11,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{s.deductDay>0?`-${fmtN(s.deductDay)}`:"0"}</td>
+              <td style={{padding:"7px 8px",fontSize:11,color:s.kpiTotal>0?Cl.no:Cl.mu,fontFamily:FM,textAlign:"right",fontWeight:600}}>{s.kpiTotal}</td>
+              <td style={{padding:"7px 8px",fontSize:11,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{s.deductKpi>0?`-${fmtN(s.deductKpi)}`:"0"}</td>
+              <td style={{padding:"7px 8px",fontSize:13,color:Cl.ok,fontFamily:FM,textAlign:"right",fontWeight:800}}>{fmtN(s.net)}</td>
+            </React.Fragment>}
+          </tr>})}</tbody>
+          {!isStaff&&<tfoot><tr style={{borderTop:`2px solid ${Cl.bdr}`}}>
+            <td colSpan={3}style={{padding:"10px 8px",fontSize:12,fontWeight:800,color:Cl.tx}}>TỔNG</td>
+            <td style={{padding:"10px 8px",fontSize:12,fontWeight:800,color:Cl.tx,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>s+calcSalary(e).base,0))}</td>
+            <td style={{padding:"10px 8px",fontSize:12,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{staffList.reduce((s,e)=>s+calcSalary(e).days,0)}</td>
+            <td style={{padding:"10px 8px",fontSize:12,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>-{fmtN(staffList.reduce((s,e)=>s+calcSalary(e).deductDay,0))}</td>
+            <td style={{padding:"10px 8px",fontSize:12,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{staffList.reduce((s,e)=>s+calcSalary(e).kpiTotal,0)}</td>
+            <td style={{padding:"10px 8px",fontSize:12,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>-{fmtN(staffList.reduce((s,e)=>s+calcSalary(e).deductKpi,0))}</td>
+            <td style={{padding:"10px 8px",fontSize:14,fontWeight:900,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>s+calcSalary(e).net,0))}</td>
+          </tr></tfoot>}
+        </table>
+      </div>
+    </div>
+  </div>;
+}
+
 // ============ EMPLOYEE FORM ============
 function EmpF({emp,curRole,dais,onSave,onCancel}){
   const t=useT();const lg=useContext(LC);const isE=!!emp;
@@ -731,7 +926,7 @@ function App(){
   const[user,sUser]=useState(()=>{try{const s=localStorage.getItem("nohu_session");return s?JSON.parse(s):null}catch{return null}});
   const setUser=(u)=>{sUser(u);try{if(u)localStorage.setItem("nohu_session",JSON.stringify(u));else localStorage.removeItem("nohu_session")}catch{}};
   const[emps,sEmps]=useState([]);const[accts,sAccts]=useState([]);
-  const[leaves,sLvs]=useState([]);const[dais,sDais]=useState([]);const[pens,sPens]=useState([]);
+  const[leaves,sLvs]=useState([]);const[dais,sDais]=useState([]);const[pens,sPens]=useState([]);const[salCfg,sSalCfg]=useState({});
   const[page,sPage]=useState("dashboard");
   const[editM,sEM]=useState(null);const[addM,sAM]=useState(false);const[col,sCol]=useState(false);
   const[swapped,setSw]=useState(false);
@@ -740,6 +935,7 @@ function App(){
     try{
       const didSwap=await DB.autoSwapShifts();if(didSwap)setSw(true);
       const[eR,aR,lR,dR,pR]=await Promise.all([DB.loadEmps(),DB.loadAccts(),DB.loadLeaves(),DB.loadDais(),DB.loadPenalties()]);
+      const sc=await DB.loadSalaryConfig();sSalCfg(sc);
       sEmps((eR||[]).map(DB.toEmp));sAccts((aR||[]).map(DB.toAcct));sLvs((lR||[]).map(DB.toLv));
       sDais(dR&&dR.length?dR:DEFAULT_DAIS);sPens((pR||[]).map(DB.toPen));sL(false);
     }catch(e){sErr("Không kết nối được Supabase. Kiểm tra lại URL và Key!");sL(false);console.error(e)}
@@ -765,6 +961,7 @@ function App(){
   const addDai=async n=>{if(dais.includes(n)){alert(t.daiEx);return}await DB.addDai(n);await reload()};
   const delDai=async n=>{await DB.deleteDai(n);await reload()};
   const resetPw=async u=>{await DB.resetPw(u);alert(t.resetD);await reload()};
+  const saveSalCfg=async cfg=>{await DB.saveSalaryConfig(cfg);sSalCfg(cfg)};
 
   // Loading screen
   if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:Cl.bg,fontFamily:Fo,color:Cl.mu}}>
@@ -797,6 +994,7 @@ function App(){
     {key:"dashboard",icon:"📊",label:t.dashboard},
     {key:"employees",icon:"👥",label:t.employees},
     {key:"leaves",icon:"🏖️",label:t.leaves},
+    {key:"salary",icon:"💰",label:t.salT},
     ...(canMg(cur.role)?[{key:"accounts",icon:"🔑",label:t.acctMg}]:[]),
     ...(isA?[{key:"perms",icon:"🔐",label:t.perms},{key:"dais",icon:"🎰",label:t.daiMg}]:[])
   ];
@@ -845,6 +1043,7 @@ function App(){
           {page==="dashboard"&&<DashP emps={emps}leaves={leaves}cur={cur}dais={dais}/>}
           {page==="employees"&&<EmpP emps={emps}cur={cur}dais={dais}onEdit={e=>sEM(e)}onAdd={()=>sAM(true)}onDel={delEmp}/>}
           {page==="leaves"&&<LeaveP emps={emps}leaves={leaves}pens={pens}cur={cur}onAdd={addLv}onDel={delLv}onAddPen={addPen}onDelPen={delPen}/>}
+          {page==="salary"&&<SalaryP emps={emps}leaves={leaves}pens={pens}cur={cur}dais={dais}salCfg={salCfg}onSaveCfg={saveSalCfg}/>}
           {page==="perms"&&<PermP cur={cur}/>}
           {page==="accounts"&&canMg(cur.role)&&<AcctP accts={accts}emps={emps}cur={cur}onReset={resetPw}/>}
           {page==="dais"&&isA&&<DaiP dais={dais}emps={emps}onAdd={addDai}onDel={delDai}/>}

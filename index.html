@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body,#root{height:100%;width:100%}
@@ -48,7 +49,7 @@ const ROLES={
 };
 const rl=(r,lg)=>(ROLES[r]?.label[lg]||r);
 const NATS=["Việt Nam","Malaysia","Myanmar","Philippines","Trung Quốc","Campuchia","Thái Lan","Indonesia","Khác"];
-const SH={1:{color:"#f59e0b",icon:"🌅"},2:{color:"#8b5cf6",icon:"🌙"}};
+const SH={0:{color:"#555",icon:"—",label:{vi:"Không phân ca",zh:"未排班",en:"No shift"}},1:{color:"#f59e0b",icon:"🌅",label:{vi:"Ca 1",zh:"班次1",en:"Shift 1"}},2:{color:"#8b5cf6",icon:"🌙",label:{vi:"Ca 2",zh:"班次2",en:"Shift 2"}},3:{color:"#06b6d4",icon:"☀️",label:{vi:"Ca sáng",zh:"早班",en:"Morning"}},4:{color:"#ec4899",icon:"🌃",label:{vi:"Ca tối",zh:"晚班",en:"Evening"}}};
 const canMg=r=>r==="admin"||r==="manager"||r==="leader";
 const td=()=>new Date().toISOString().split("T")[0];
 const ini=n=>(n||"?").split(" ").map(w=>(w||"")[0]||"").join("").toUpperCase().slice(0,3)||"?";
@@ -61,7 +62,7 @@ const Fo="'DM Sans',system-ui,sans-serif";const FM="'JetBrains Mono',monospace";
 const Av=({name,role,size=34})=>{const r=ROLES[role]||ROLES.staff;return<div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${r.color}20,${r.color}40)`,border:`2px solid ${r.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.3,fontWeight:700,color:r.color,fontFamily:FM,flexShrink:0}}>{ini(name)}</div>};
 const Bdg=({role})=>{const lg=useContext(LC);const r=ROLES[role]||ROLES.staff;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${r.color}15`,color:r.color,fontSize:10,fontWeight:600,border:`1px solid ${r.color}25`}}>{r.icon} {rl(role,lg)}</span>};
 const DBdg=({dai})=>{if(!dai||dai==="—")return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:"#06b6d415",color:"#06b6d4",fontSize:10,fontWeight:600,border:"1px solid #06b6d425"}}>🎰 {dai}</span>};
-const SBdg=({shift})=>{const t=useT();const s=SH[shift];if(!s)return null;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${s.color}15`,color:s.color,fontSize:10,fontWeight:600,border:`1px solid ${s.color}25`}}>{s.icon} {shift===1?t.s1L:t.s2L}</span>};
+const SBdg=({shift})=>{const lg=useContext(LC);const s=SH[shift];if(!s||shift===0)return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${s.color}15`,color:s.color,fontSize:10,fontWeight:600,border:`1px solid ${s.color}25`}}>{s.icon} {s.label[lg]}</span>};
 const SDot=({active})=>{const t=useT();return<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:active?Cl.ok:Cl.mu}}><span style={{width:6,height:6,borderRadius:"50%",background:active?Cl.ok:"#555",boxShadow:active?`0 0 6px ${Cl.ok}50`:"none"}}/>{active?t.active:t.inactive}</span>};
 
 function Btn({children,v="primary",sm,disabled,...p}){const S={primary:[Cl.ac,"#fff",Cl.acL],danger:[Cl.no,"#fff","#f87171"],ghost:["transparent",Cl.mu,Cl.card],success:[Cl.ok,"#fff","#34d399"],warn:[Cl.wr,"#fff","#fbbf24"]};const[bg,c,hv]=S[v]||S.primary;return<button disabled={disabled}{...p}style={{padding:sm?"4px 10px":"7px 16px",borderRadius:8,border:v==="ghost"?`1px solid ${Cl.bdr}`:"none",background:disabled?"#333":bg,color:disabled?"#666":c,fontSize:sm?10:12,fontWeight:600,fontFamily:Fo,cursor:disabled?"not-allowed":"pointer",transition:"all .15s",display:"inline-flex",alignItems:"center",gap:4,opacity:disabled?.5:1,...(p.style||{})}}onMouseEnter={e=>{if(!disabled){e.currentTarget.style.background=hv;e.currentTarget.style.transform="translateY(-1px)"}}}onMouseLeave={e=>{if(!disabled){e.currentTarget.style.background=bg;e.currentTarget.style.transform=""}}}>{children}</button>}
@@ -83,7 +84,7 @@ const DB={
   async loadLeaves(){const{data}=await supabase.from("leaves").select("*");return data||[]},
   async loadDais(){const{data}=await supabase.from("dais").select("*").order("id");return(data||[]).map(d=>d.name)},
 
-  async upsertEmp(e){const row={id:e.id,name:e.name,emp_code:e.empCode,phone:e.phone||"",role:e.role,dai:e.dai,shift:e.shift,status:e.status,join_date:e.joinDate,nationality:e.nationality||"Việt Nam"};await supabase.from("employees").upsert(row,{onConflict:"id"})},
+  async upsertEmp(e){const row={id:e.id,name:e.name,emp_code:e.empCode,phone:e.phone||"",role:e.role,dai:e.dai,shift:e.shift,status:e.status,join_date:e.joinDate,nationality:e.nationality||"Việt Nam",transfer_date:e.transferDate||""};await supabase.from("employees").upsert(row,{onConflict:"id"})},
   async deleteEmp(id){await supabase.from("employees").delete().eq("id",id)},
 
   async addAcct(a){await supabase.from("accounts").insert({username:a.username,password:a.password,emp_id:a.empId})},
@@ -99,7 +100,7 @@ const DB={
   async nextEmpId(){const{data}=await supabase.from("employees").select("id").order("id",{ascending:false}).limit(1);if(!data||!data.length)return"E001";const num=parseInt(data[0].id.slice(1))||0;return`E${String(num+1).padStart(3,"0")}`},
 
   // Convert DB row → app format
-  toEmp(r){return{id:r.id,name:r.name,empCode:r.emp_code,phone:r.phone,role:r.role,dai:r.dai,shift:r.shift,status:r.status,joinDate:r.join_date,nationality:r.nationality}},
+  toEmp(r){return{id:r.id,name:r.name||"",empCode:r.emp_code||"",phone:r.phone||"",role:r.role||"staff",dai:r.dai||"—",shift:r.shift||0,status:r.status||"active",joinDate:r.join_date||"",nationality:r.nationality||"",transferDate:r.transfer_date||""}},
   toAcct(r){return{username:r.username,password:r.password,empId:r.emp_id}},
   toLv(r){return{empId:r.emp_id,date:r.date,reason:r.reason,addedBy:r.added_by}},
 };
@@ -164,25 +165,40 @@ function EmpP({emps,cur,dais,onEdit,onAdd,onShift,onDel}){
   const filtered=emps.filter(e=>{if(cur.role==="staff"&&e.id!==cur.id)return false;if(!isA&&e.role==="admin")return false;if(search&&!e.name.toLowerCase().includes(search.toLowerCase())&&!(e.empCode||"").toLowerCase().includes(search.toLowerCase()))return false;if(fR!=="all"&&e.role!==fR)return false;if(fD!=="all"&&e.dai!==fD)return false;if(fSh!=="all"&&e.shift!==Number(fSh))return false;return true});
   const natS={};act.forEach(e=>{natS[e.nationality||"Khác"]=(natS[e.nationality||"Khác"]||0)+1});
   const daiS={};dais.forEach(d=>{daiS[d]=act.filter(e=>e.dai===d).length});
-  const s1c=act.filter(e=>e.shift===1).length;const s2c=act.filter(e=>e.shift===2).length;
+  const shCounts=Object.keys(SH).map(Number).filter(s=>s>0).map(s=>({s,c:act.filter(e=>e.shift===s).length}));
+
+  // Excel Export
+  const exportExcel=()=>{
+    const lg2=lg;const staff=filtered.filter(e=>e.role==="staff");
+    const sorted=[...staff].sort((a,b)=>{if(a.shift!==b.shift)return a.shift-b.shift;return(a.nationality||"").localeCompare(b.nationality||"")});
+    const rows=sorted.map(e=>({
+      "Mã NV":e.empCode,"Tên":e.name,"Cấp độ":rl(e.role,lg2),
+      "Đài":e.dai,"Ca làm":SH[e.shift]?.label[lg2]||"—",
+      "Quốc tịch":e.nationality||"","Trạng thái":e.status==="active"?"Đang làm":"Tạm nghỉ",
+      "Ngày vào":e.joinDate||"","Ngày chuyển chính":e.transferDate||"","SĐT":e.phone||""
+    }));
+    const ws=XLSX.utils.json_to_sheet(rows);
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Nhân viên");
+    XLSX.writeFile(wb,`NOHU_NhanVien_${td()}.xlsx`);
+  };
 
   return<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
       <div><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.empMg}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{filtered.length} {t.cName}</p></div>
-      {mg&&<Btn onClick={onAdd}>{t.addCSKH}</Btn>}
+      <div style={{display:"flex",gap:6}}>{mg&&<Btn v="warn" onClick={exportExcel}>📥 Excel</Btn>}{mg&&<Btn onClick={onAdd}>{t.addCSKH}</Btn>}</div>
     </div>
     {mg&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
       <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sByDai}</h5>{dais.map(d=><div key={d}style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:10}}><span style={{color:"#06b6d4"}}>🎰 {d}</span><span style={{color:Cl.tx,fontFamily:FM,fontWeight:700}}>{daiS[d]||0}</span></div>)}</div>
       <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sByNat}</h5>{Object.entries(natS).sort((a,b)=>b[1]-a[1]).map(([n,c])=><div key={n}style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:10}}><span style={{color:Cl.tx}}>{n}</span><span style={{color:Cl.acL,fontFamily:FM,fontWeight:700}}>{c}</span></div>)}</div>
-      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sBySh}</h5>{[[1,s1c,"#f59e0b"],[2,s2c,"#8b5cf6"]].map(([s,c,cl])=><div key={s}style={{marginBottom:6}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}><span style={{color:Cl.tx}}>{SH[s].icon} {s===1?t.s1L:t.s2L}</span><span style={{color:cl,fontFamily:FM,fontWeight:700}}>{c}</span></div><div style={{height:4,borderRadius:2,background:Cl.bg}}><div style={{height:"100%",borderRadius:2,width:`${act.length?Math.round(c/act.length*100):0}%`,background:cl}}/></div></div>)}</div>
+      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sBySh}</h5>{shCounts.map(({s,c})=><div key={s}style={{marginBottom:5}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}><span style={{color:Cl.tx}}>{SH[s].icon} {SH[s].label[lg]}</span><span style={{color:SH[s].color,fontFamily:FM,fontWeight:700}}>{c}</span></div><div style={{height:4,borderRadius:2,background:Cl.bg}}><div style={{height:"100%",borderRadius:2,width:`${act.length?Math.round(c/act.length*100):0}%`,background:SH[s].color}}/></div></div>)}</div>
     </div>}
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",padding:"10px 12px",borderRadius:10,background:Cl.card,border:`1px solid ${Cl.bdr}`}}>
       <input placeholder={t.searchPh} value={search} onChange={e=>sS(e.target.value)} style={{flex:"1 1 140px",padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,outline:"none",boxSizing:"border-box"}}/>
       <select value={fR} onChange={e=>sFR(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allLv}</option>{vR.map(([k,v])=><option key={k}value={k}>{v.icon} {rl(k,lg)}</option>)}</select>
       <select value={fD} onChange={e=>sFD(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allDai}</option>{dais.map(d=><option key={d}value={d}>🎰 {d}</option>)}</select>
-      <select value={fSh} onChange={e=>sFSh(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allSh}</option><option value="1">🌅</option><option value="2">🌙</option></select>
+      <select value={fSh} onChange={e=>sFSh(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allSh}</option>{Object.entries(SH).filter(([k])=>Number(k)>0).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label[lg]}</option>)}</select>
     </div>
-    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}><thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>{[t.cName,t.cCode,t.cLv,t.cDai,t.cSh,t.cNat,t.cSt,t.cJoin,""].map((h,i)=><th key={i}style={{padding:"9px 8px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
+    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}><thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>{[t.cName,t.cCode,t.cLv,t.cDai,t.cSh,t.cNat,"Chuyển chính",t.cSt,t.cJoin,""].map((h,i)=><th key={i}style={{padding:"9px 8px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
     <tbody>{filtered.map(e=><tr key={e.id}style={{borderBottom:`1px solid ${Cl.bdr}06`}}onMouseEnter={ev=>ev.currentTarget.style.background=`${Cl.ac}05`}onMouseLeave={ev=>ev.currentTarget.style.background=""}>
       <td style={{padding:"7px 8px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><Av name={e.name}role={e.role}size={28}/><div style={{fontSize:11,fontWeight:600,color:Cl.tx}}>{e.name}</div></div></td>
       <td style={{padding:"7px 8px",fontSize:10,color:Cl.acL,fontFamily:FM,fontWeight:600}}>{e.empCode}</td>
@@ -190,9 +206,10 @@ function EmpP({emps,cur,dais,onEdit,onAdd,onShift,onDel}){
       <td style={{padding:"7px 8px"}}><DBdg dai={e.dai}/></td>
       <td style={{padding:"7px 8px"}}><SBdg shift={e.shift}/></td>
       <td style={{padding:"7px 8px",fontSize:10,color:Cl.tx}}>{e.nationality||"—"}</td>
+      <td style={{padding:"7px 8px",fontSize:10,color:e.transferDate?Cl.ok:Cl.mu,fontFamily:FM}}>{e.transferDate?fmt(e.transferDate):"—"}</td>
       <td style={{padding:"7px 8px"}}><SDot active={e.status==="active"}/></td>
       <td style={{padding:"7px 8px",fontSize:10,color:Cl.mu,fontFamily:FM}}>{fmt(e.joinDate)}</td>
-      <td style={{padding:"7px 8px"}}>{mg&&<div style={{display:"flex",gap:2}}><Btn v="ghost"sm onClick={()=>onEdit(e)}>✏️</Btn><Btn v="ghost"sm onClick={()=>onShift(e)}>{e.shift===1?"🌙":"🌅"}</Btn><Btn v="ghost"sm onClick={()=>onDel(e)}style={{color:Cl.no}}>🗑</Btn></div>}</td>
+      <td style={{padding:"7px 8px"}}>{mg&&<div style={{display:"flex",gap:2}}><Btn v="ghost"sm onClick={()=>onEdit(e)}>✏️</Btn><Btn v="ghost"sm onClick={()=>onDel(e)}style={{color:Cl.no}}>🗑</Btn></div>}</td>
     </tr>)}</tbody></table></div>
     {filtered.length===0&&<div style={{padding:20,textAlign:"center",color:Cl.mu,fontSize:11}}>{t.noRes}</div>}</div>
   </div>;
@@ -210,7 +227,7 @@ function LeaveP({emps,leaves,cur,onAdd,onDel}){
   return<div>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
       <div><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.leaveMg}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{t.mo} {m}/{y} — {mL.length} {t.lvCnt}</p></div>
-      {mg&&<Btn onClick={()=>{sAF({empId:vE.find(e=>e.status==="active")?.id||"",date:td(),reason:t.reasons[0]});sAM(true)}}>{t.addLv}</Btn>}
+      {mg&&<Btn onClick={()=>{const nm=new Date();nm.setMonth(nm.getMonth()+1);const nms=nm.toISOString().slice(0,7);sAF({empId:vE.find(e=>e.status==="active")?.id||"",month:nms,days:"",reason:t.reasons[0]});sAM(true)}}>{t.addLv}</Btn>}
     </div>
     <div style={{display:"flex",gap:6,marginBottom:12}}>
       <input type="month"value={month}onChange={e=>sM(e.target.value)}style={{padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo}}/>
@@ -233,11 +250,28 @@ function LeaveP({emps,leaves,cur,onAdd,onDel}){
         </div>
       </div>
     </div>
-    <Mod open={addM}onClose={()=>sAM(false)}title={t.addLv}>
-      <Sel label={t.selEmp}value={af.empId}onChange={e=>sAF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode}`}))}/>
-      <Inp label={t.lvDate}type="date"value={af.date}onChange={e=>sAF(p=>({...p,date:e.target.value}))}/>
+    <Mod open={addM}onClose={()=>sAM(false)}title="📅 Thêm lịch nghỉ tháng" wide>
+      <Sel label={t.selEmp}value={af.empId}onChange={e=>sAF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode} — ${e.dai||""}`}))}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <div><label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>Tháng</label><input type="month"value={af.month||month}onChange={e=>sAF(p=>({...p,month:e.target.value}))}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box"}}/></div>
+        <Inp label="Các ngày nghỉ (phân cách bằng dấu . hoặc ,)" value={af.days||""} onChange={e=>sAF(p=>({...p,days:e.target.value}))} placeholder="VD: 3.8.15.26"/>
+      </div>
       <Sel label={t.lvReason}value={af.reason}onChange={e=>sAF(p=>({...p,reason:e.target.value}))}options={t.reasons}/>
-      <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}><Btn v="ghost"onClick={()=>sAM(false)}>{t.cancel}</Btn><Btn v="success"onClick={()=>{if(af.empId&&af.date){onAdd({empId:af.empId,date:af.date,reason:af.reason,addedBy:cur.id});sAM(false)}}}>{t.confirm}</Btn></div>
+      {af.days&&<div style={{padding:"10px 12px",borderRadius:8,background:Cl.bg,marginBottom:11,border:`1px solid ${Cl.bdr}`}}>
+        <div style={{fontSize:10,color:Cl.mu,marginBottom:4}}>Xem trước:</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31).map(d=>{
+          const mo=af.month||month;const ds=`${mo}-${String(d).padStart(2,"0")}`;
+          return<span key={d}style={{padding:"3px 8px",borderRadius:6,background:`${Cl.no}15`,color:Cl.no,fontSize:10,fontWeight:600,border:`1px solid ${Cl.no}25`}}>{Number(d)}/{mo.split("-")[1]}</span>
+        })}</div>
+      </div>}
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}><Btn v="ghost"onClick={()=>sAM(false)}>{t.cancel}</Btn><Btn v="success"onClick={()=>{
+        if(!af.empId)return;
+        const mo=af.month||month;
+        const dayList=(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31);
+        if(!dayList.length){alert("Nhập ít nhất 1 ngày!");return}
+        dayList.forEach(d=>{const ds=`${mo}-${String(d).padStart(2,"0")}`;onAdd({empId:af.empId,date:ds,reason:af.reason||"Nghỉ phép",addedBy:cur.id})});
+        sAM(false);
+      }}>✓ Thêm {(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)).length} ngày</Btn></div>
     </Mod>
   </div>;
 }
@@ -262,27 +296,32 @@ return<div><h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}
 
 // --- Emp Form ---
 function EmpF({emp,curRole,dais,onSave,onCancel}){const t=useT();const lg=useContext(LC);const isE=!!emp;
-const[f,sF]=useState(emp||{name:"",empCode:"",phone:"",role:"staff",dai:dais[0]||"NOHU",shift:1,status:"active",joinDate:td(),nationality:"Việt Nam",username:"",acctPassword:"123456"});
+const shOpts=Object.entries(SH).map(([k,v])=>({v:Number(k),l:`${v.icon} ${v.label[lg]}`}));
+const[f,sF]=useState(emp||{name:"",empCode:"",phone:"",role:"staff",dai:dais[0]||"NOHU",shift:1,status:"active",joinDate:td(),nationality:"Việt Nam",transferDate:"",username:"",acctPassword:"123456"});
 const s=(k,v)=>{
   const nf={...f,[k]:v};
-  if(k==="role"&&v!=="staff"){nf.dai="—"}
-  if(k==="role"&&v==="staff"&&nf.dai==="—"){nf.dai=dais[0]||"NOHU"}
+  if(k==="role"&&v!=="staff"){nf.dai="—";nf.shift=0}
+  if(k==="role"&&v==="staff"&&nf.dai==="—"){nf.dai=dais[0]||"NOHU";if(!nf.shift)nf.shift=1}
   sF(nf);
 };
 const rO=curRole==="admin"?Object.entries(ROLES).filter(([k])=>k!=="admin").map(([k])=>({v:k,l:`${ROLES[k].icon} ${rl(k,lg)}`})):[{v:"staff",l:`👤 ${rl("staff",lg)}`}];
 const isStaff=f.role==="staff";
 return<div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label={t.fName}value={f.name}onChange={e=>s("name",e.target.value)}/><Inp label={t.fCode}value={f.empCode}onChange={e=>s("empCode",e.target.value.toUpperCase())}style={{fontFamily:FM,fontWeight:700}}/></div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+<div style={{display:"grid",gridTemplateColumns:isStaff?"1fr 1fr 1fr 1fr":"1fr 1fr",gap:8}}>
 <Sel label={t.fLv}value={f.role}onChange={e=>s("role",e.target.value)}options={rO}/>
 {isStaff&&<Sel label={t.fDai}value={f.dai}onChange={e=>s("dai",e.target.value)}options={dais.length?dais:["NOHU"]}/>}
-<Sel label={t.fShift}value={f.shift}onChange={e=>s("shift",Number(e.target.value))}options={[{v:1,l:`🌅 ${t.s1L}`},{v:2,l:`🌙 ${t.s2L}`}]}/>
-{!isStaff&&<div/>}
+{isStaff&&<Sel label="Ca làm"value={f.shift}onChange={e=>s("shift",Number(e.target.value))}options={shOpts}/>}
+<Sel label="Quốc tịch"value={f.nationality}onChange={e=>s("nationality",e.target.value)}options={NATS}/>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label={t.fJoin}type="date"value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/><Sel label={t.fNat}value={f.nationality}onChange={e=>s("nationality",e.target.value)}options={NATS}/></div>
-{!isE&&<div style={{padding:"12px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:11}}><div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:6}}>🔑 Tài khoản đăng nhập</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label={t.acctU}value={f.username||""}onChange={e=>s("username",e.target.value)}placeholder="VD: JAX"style={{fontFamily:FM}}/><Inp label={t.acctP}value={f.acctPassword||"123456"}onChange={e=>s("acctPassword",e.target.value)}placeholder="VD: 123"style={{fontFamily:FM}}/></div></div>}
-{isE&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label={t.fPhone}value={f.phone||""}onChange={e=>s("phone",e.target.value)}/><Sel label={t.fSt}value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:t.stA},{v:"inactive",l:t.stI}]}/></div>}
-<div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}><Btn v="ghost"onClick={onCancel}>{t.cancel}</Btn><Btn v="success"onClick={()=>{if(f.name&&f.empCode&&(isStaff?f.dai:true))onSave({...f,dai:isStaff?f.dai:"—"})}}>{isE?t.save:t.create}</Btn></div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+<Inp label="Ngày nhận việc *"type="date"value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/>
+<Inp label="Ngày chuyển chính"type="date"value={f.transferDate||""}onChange={e=>s("transferDate",e.target.value)}/>
+{isE&&<Sel label="Trạng thái"value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:"✅ Đang làm"},{v:"inactive",l:"⏸ Tạm nghỉ"}]}/>}
+</div>
+{isE&&<Inp label="SĐT"value={f.phone||""}onChange={e=>s("phone",e.target.value)}/>}
+{!isE&&<div style={{padding:"12px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:11}}><div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:6}}>🔑 Tài khoản đăng nhập</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Username"value={f.username||""}onChange={e=>s("username",e.target.value)}placeholder="VD: JAX"style={{fontFamily:FM}}/><Inp label="Mật khẩu"value={f.acctPassword||"123456"}onChange={e=>s("acctPassword",e.target.value)}placeholder="VD: 123"style={{fontFamily:FM}}/></div></div>}
+<div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}><Btn v="ghost"onClick={onCancel}>{t.cancel}</Btn><Btn v="success"onClick={()=>{if(f.name&&f.empCode&&(isStaff?f.dai:true))onSave({...f,dai:isStaff?f.dai:"—",shift:isStaff?f.shift:0})}}>{isE?t.save:t.create}</Btn></div>
 </div>}
 
 // ============ MAIN APP ============

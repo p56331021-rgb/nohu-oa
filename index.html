@@ -265,6 +265,42 @@ function SC({icon,label,value,color,sub}){
 
 function LangSw({lang,setLang}){return<div style={{display:"flex",gap:2,background:Cl.card,borderRadius:8,padding:2,border:`1px solid ${Cl.bdr}`}}>{[["vi","🇻🇳"],["zh","🇨🇳"],["en","🇬🇧"]].map(([k,f])=><button key={k}onClick={()=>setLang(k)}style={{padding:"3px 8px",borderRadius:6,border:"none",background:lang===k?Cl.ac:"transparent",color:lang===k?"#fff":Cl.mu,fontSize:12,cursor:"pointer",fontWeight:600}}>{f}</button>)}</div>}
 
+// Custom date input dd/mm/yyyy — value is yyyy-mm-dd internally
+function DateInp({label,value,onChange,...p}){
+  const toDisplay=(v)=>{if(!v)return"";const pp=v.split("-");if(pp.length!==3)return v;return`${pp[2]}/${pp[1]}/${pp[0]}`};
+  const toISO=(v)=>{if(!v)return"";const pp=v.split("/");if(pp.length!==3)return"";return`${pp[2]}-${pp[1]}-${pp[0]}`};
+  const[txt,sTxt]=useState(toDisplay(value));
+  useEffect(()=>{sTxt(toDisplay(value))},[value]);
+  const handleChange=(e)=>{
+    let raw=e.target.value.replace(/[^0-9/]/g,"");
+    // Auto-add slashes
+    const digits=raw.replace(/\//g,"");
+    if(digits.length<=2)raw=digits;
+    else if(digits.length<=4)raw=digits.slice(0,2)+"/"+digits.slice(2);
+    else raw=digits.slice(0,2)+"/"+digits.slice(2,4)+"/"+digits.slice(4,8);
+    sTxt(raw);
+    if(raw.length===10){const iso=toISO(raw);if(iso&&!isNaN(Date.parse(iso)))onChange({target:{value:iso}})}
+  };
+  return<div style={{marginBottom:11}}>
+    {label&&<label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{label}</label>}
+    <input value={txt}onChange={handleChange}placeholder="dd/mm/yyyy"maxLength={10}{...p}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:FM,outline:"none",boxSizing:"border-box",...(p.style||{})}}onFocus={e=>e.target.style.borderColor=Cl.ac}onBlur={e=>{e.target.style.borderColor=Cl.bdr;if(txt.length===10){const iso=toISO(txt);if(iso&&!isNaN(Date.parse(iso)))onChange({target:{value:iso}})}}}/>
+  </div>
+}
+
+// Custom month picker with ← → navigation
+function MonthNav({value,onChange}){
+  const[y,m]=value.split("-").map(Number);
+  const prev=()=>{const nm=m===1?12:m-1;const ny=m===1?y-1:y;onChange(`${ny}-${String(nm).padStart(2,"0")}`)};
+  const next=()=>{const nm=m===12?1:m+1;const ny=m===12?y+1:y;onChange(`${ny}-${String(nm).padStart(2,"0")}`)};
+  const mNames={vi:["","Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"],zh:["","1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],en:["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]};
+  const lg=useContext(LC);const label=`${(mNames[lg]||mNames.vi)[m]} ${y}`;
+  return<div style={{display:"flex",alignItems:"center",gap:0,borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,overflow:"hidden"}}>
+    <button onClick={prev}style={{padding:"6px 10px",background:"transparent",border:"none",color:Cl.mu,cursor:"pointer",fontSize:13,fontWeight:700,borderRight:`1px solid ${Cl.bdr}`}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>◀</button>
+    <div style={{padding:"6px 14px",fontSize:12,fontWeight:700,color:Cl.tx,fontFamily:Fo,minWidth:120,textAlign:"center"}}>{label}</div>
+    <button onClick={next}style={{padding:"6px 10px",background:"transparent",border:"none",color:Cl.mu,cursor:"pointer",fontSize:13,fontWeight:700,borderLeft:`1px solid ${Cl.bdr}`}}onMouseEnter={e=>e.currentTarget.style.background=Cl.card}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>▶</button>
+  </div>
+}
+
 // ============ LOGIN ============
 function LoginP({onLogin,accts,emps}){
   const t=useT();const lg=useContext(LC);
@@ -455,8 +491,8 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
     </div>
 
     {/* Filters */}
-    <div style={{display:"flex",gap:6,marginBottom:12}}>
-      <input type="month"value={month}onChange={e=>sM(e.target.value)}style={{padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo}}/>
+    <div style={{display:"flex",gap:6,marginBottom:12,alignItems:"center"}}>
+      <MonthNav value={month} onChange={sM}/>
       <select value={selE}onChange={e=>sSE(e.target.value)}style={{padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo}}><option value="">{t.allEmp}</option>{vE.map(e=><option key={e.id}value={e.id}>{e.name}</option>)}</select>
     </div>
 
@@ -509,8 +545,8 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
     {/* Batch Leave Modal */}
     <Mod open={addM}onClose={()=>sAM(false)}title="📅 Thêm lịch nghỉ hàng loạt" wide>
       <Sel label={t.selEmp}value={af.empId}onChange={e=>sAF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode} — ${e.dai||""}`}))}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div><label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{t.batchMonth}</label><input type="month"value={af.month||month}onChange={e=>sAF(p=>({...p,month:e.target.value}))}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box"}}/></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"end"}}>
+        <div><label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{t.batchMonth}</label><MonthNav value={af.month||month} onChange={v=>sAF(p=>({...p,month:v}))}/></div>
         <Inp label={t.batchDays} value={af.days||""} onChange={e=>sAF(p=>({...p,days:e.target.value}))} placeholder="VD: 3.8.15.26"/>
       </div>
       <Sel label={t.lvReason}value={af.reason}onChange={e=>sAF(p=>({...p,reason:e.target.value}))}options={t.reasons}/>
@@ -537,7 +573,7 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
     {/* Penalty Modal */}
     <Mod open={penM}onClose={()=>sPM(false)}title={`⚠️ ${t.addPen}`}>
       <Sel label={t.selEmp}value={pf.empId}onChange={e=>sPF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode}`}))}/>
-      <Inp label={t.penDate}type="date"value={pf.date}onChange={e=>sPF(p=>({...p,date:e.target.value}))}/>
+      <DateInp label={t.penDate}value={pf.date}onChange={e=>sPF(p=>({...p,date:e.target.value}))}/>
       <Inp label={t.penKpi}type="number"value={pf.kpi}onChange={e=>sPF(p=>({...p,kpi:Number(e.target.value)}))}/>
       <Inp label={t.penReason}value={pf.reason}onChange={e=>sPF(p=>({...p,reason:e.target.value}))}placeholder="Nhập lý do..."/>
       <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}>
@@ -664,8 +700,8 @@ function EmpF({emp,curRole,dais,onSave,onCancel}){
       <Sel label={t.fNat}value={f.nationality}onChange={e=>s("nationality",e.target.value)}options={NATS}/>
     </div>
     <div style={{display:"grid",gridTemplateColumns:isE?"1fr 1fr 1fr":"1fr 1fr",gap:8}}>
-      <Inp label={t.fJoin}type="date"value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/>
-      <Inp label={t.fTrans}type="date"value={f.transferDate||""}onChange={e=>s("transferDate",e.target.value)}/>
+      <DateInp label={t.fJoin}value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/>
+      <DateInp label={t.fTrans}value={f.transferDate||""}onChange={e=>s("transferDate",e.target.value)}/>
       {isE&&<Sel label={t.fSt}value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:t.stA},{v:"inactive",l:t.stI}]}/>}
     </div>
     {!isE&&<div style={{padding:"12px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:11}}>

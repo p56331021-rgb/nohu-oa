@@ -18,6 +18,11 @@ body{background:#0c0e16;overflow:auto}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#262b42;border-radius:3px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.fade-in{animation:fadeIn .3s ease}
+.slide-in{animation:slideIn .2s ease}
 </style>
 </head>
 <body>
@@ -31,16 +36,9 @@ const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // ================================================
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const {useState,useEffect,createContext,useContext} = React;
+const {useState,useEffect,useRef,createContext,useContext,useCallback,useMemo} = React;
 
-// ============ i18n ============
-const L={
-vi:{appSub:"QUẢN LÝ CSKH",login:"Đăng nhập",loginBtn:"Đăng nhập →",logging:"Đang xác thực...",username:"Tên đăng nhập",password:"Mật khẩu",loginErr:"Sai tài khoản hoặc mật khẩu!",sysTitle:"Hệ thống quản lý nhân viên CSKH",hello:"Xin chào",todayL:"Hôm nay",dashboard:"Dashboard",employees:"Nhân viên",leaves:"Ngày nghỉ",perms:"Phân quyền",daiMg:"Quản lý đài",acctMg:"Quản lý TK",kpiMg:"KPI / Lỗi",totalEmp:"Tổng nhân viên",s1Today:"Ca 1 hôm nay",s2Today:"Ca 2 hôm nay",offToday:"Nghỉ hôm nay",working:"đang làm",off:"nghỉ",full:"đủ",leaveToday:"Nghỉ hôm nay",noLeave:"Không có ai nghỉ ✅",shiftToday:"Phân ca hôm nay",byDai:"Theo đài",persons:"người",empMg:"Quản lý nhân viên",addCSKH:"＋ Thêm CSKH",searchPh:"🔍 Tìm tên, mã NV...",allLv:"Tất cả cấp độ",allDai:"Tất cả đài",allSh:"Tất cả ca",cName:"Nhân viên",cCode:"Mã NV",cLv:"Cấp độ",cDai:"Đài",cSh:"Ca làm",cNat:"Quốc tịch",cSt:"Trạng thái",cJoin:"Ngày vào",active:"Đang làm",inactive:"Tạm nghỉ",noRes:"Không tìm thấy",sByDai:"📊 Theo đài",sByNat:"🌏 Theo quốc tịch",sBySh:"⏰ Theo ca",leaveMg:"Quản lý ngày nghỉ",addLv:"＋ Thêm ngày nghỉ",mo:"Tháng",lvCnt:"lượt nghỉ",allEmp:"Tất cả NV",calT:"📅 Lịch nghỉ tháng",lvList:"📋 DS nghỉ",noLvD:"Không có lịch nghỉ",lvStat:"📊 Thống kê nghỉ tháng",lvDay:"ngày",selEmp:"Nhân viên",lvDate:"Ngày nghỉ",lvReason:"Lý do",reasons:["Nghỉ phép","Nghỉ phép năm","Nghỉ không lương","Xuống ca sớm"],cancel:"Huỷ",confirm:"✓ Xác nhận",alrOff:"NV đã nghỉ ngày này!",permT:"Ma trận phân quyền",permS:"Bảng quyền hạn theo cấp độ",pViewAll:"Xem tất cả NV",pAdd:"Thêm NV CSKH",pEdit:"Sửa thông tin",pDel:"Xoá nhân viên",pShift:"Phân ca",pLeave:"QL ngày nghỉ",pVLeave:"Xem nghỉ cá nhân",pDai:"QL đài",pAcct:"QL tài khoản",pSeeA:"Xem cấp Admin",noteL:"💡 GHI CHÚ",noteIn:"Bạn đang đăng nhập:",noteStaff:"Bạn chỉ xem được thông tin cá nhân.",noteManage:"Bạn có quyền quản lý NV, phân ca, nghỉ và TK.",noteAdmin:"Bạn có toàn quyền bao gồm QL đài.",daiT:"Quản lý đài",daiS:"Thêm/xoá đài (Admin)",daiPh:"Tên đài mới...",addDai:"＋ Thêm đài",daiEx:"Đài đã tồn tại!",daiW:"NV đang làm",acctT:"Quản lý tài khoản",acctS:"Danh sách tài khoản",acctU:"Username",acctP:"Mật khẩu",acctE:"Nhân viên",acctR:"Cấp độ",resetP:"Đặt lại",resetD:"Đã reset! → 123456",editEmp:"Chỉnh sửa NV",addEmpT:"Thêm NV CSKH",fName:"Tên nhân viên *",fCode:"Mã nhân viên *",fJoin:"Ngày nhận việc *",fNat:"Quốc tịch",fDai:"Đài làm việc *",fShift:"Ca làm",fLv:"Cấp độ",fPhone:"SĐT",fSt:"Trạng thái",save:"💾 Lưu",create:"＋ Tạo",stA:"✅ Đang làm",stI:"⏸ Tạm nghỉ",logout:"🚪 Đăng xuất",loading:"Đang tải...",delCfm:"Bạn có chắc muốn xoá?",s1L:"Ca 1",s2L:"Ca 2"},
-zh:{appSub:"客服管理系统",login:"登录",loginBtn:"登录 →",logging:"验证中...",username:"用户名",password:"密码",loginErr:"用户名或密码错误！",sysTitle:"客服人员管理系统",hello:"你好",todayL:"今天",dashboard:"仪表板",employees:"员工",leaves:"休假",perms:"权限",daiMg:"台管理",acctMg:"账号管理",kpiMg:"KPI / 错误",totalEmp:"总员工",s1Today:"今日班1",s2Today:"今日班2",offToday:"今日休假",working:"在职",off:"休假",full:"齐全",leaveToday:"今日休假",noLeave:"无人休假 ✅",shiftToday:"今日排班",byDai:"按台",persons:"人",empMg:"员工管理",addCSKH:"＋ 添加客服",searchPh:"🔍 搜索...",allLv:"所有级别",allDai:"所有台",allSh:"所有班次",cName:"员工",cCode:"工号",cLv:"级别",cDai:"台",cSh:"班次",cNat:"国籍",cSt:"状态",cJoin:"入职",active:"在职",inactive:"休息中",noRes:"未找到",sByDai:"📊 按台",sByNat:"🌏 按国籍",sBySh:"⏰ 按班次",leaveMg:"休假管理",addLv:"＋ 添加休假",mo:"月份",lvCnt:"次休假",allEmp:"所有员工",calT:"📅 月度日历",lvList:"📋 休假列表",noLvD:"无记录",lvStat:"📊 月度统计",lvDay:"天",selEmp:"员工",lvDate:"休假日期",lvReason:"原因",reasons:["请假","年假","无薪假","提前下班"],cancel:"取消",confirm:"✓ 确认",alrOff:"当天已有休假！",permT:"权限矩阵",permS:"按级别划分",pViewAll:"查看全部",pAdd:"添加客服",pEdit:"编辑信息",pDel:"删除员工",pShift:"排班",pLeave:"管理休假",pVLeave:"查看个人休假",pDai:"管理台",pAcct:"管理账号",pSeeA:"查看Admin",noteL:"💡 备注",noteIn:"当前登录：",noteStaff:"仅查看个人信息。",noteManage:"可管理员工、排班、休假和账号。",noteAdmin:"拥有全部权限。",daiT:"台管理",daiS:"添加/删除台(Admin)",daiPh:"新台名...",addDai:"＋ 添加台",daiEx:"已存在！",daiW:"员工在职",acctT:"账号管理",acctS:"账号列表",acctU:"用户名",acctP:"密码",acctE:"员工",acctR:"级别",resetP:"重置",resetD:"已重置！→ 123456",editEmp:"编辑员工",addEmpT:"添加客服",fName:"姓名 *",fCode:"工号 *",fJoin:"入职日期 *",fNat:"国籍",fDai:"工作台 *",fShift:"班次",fLv:"级别",fPhone:"电话",fSt:"状态",save:"💾 保存",create:"＋ 创建",stA:"✅ 在职",stI:"⏸ 休息中",logout:"🚪 退出",loading:"加载中...",delCfm:"确定删除？",s1L:"班次1",s2L:"班次2"},
-en:{appSub:"CS MANAGEMENT",login:"Login",loginBtn:"Login →",logging:"Verifying...",username:"Username",password:"Password",loginErr:"Wrong credentials!",demoAcct:"DEMO ACCOUNTS",sysTitle:"CS Staff Management",hello:"Hello",todayL:"Today",dashboard:"Dashboard",employees:"Employees",leaves:"Leaves",perms:"Permissions",daiMg:"Stations",acctMg:"Accounts",totalEmp:"Total Staff",s1Today:"Shift 1",s2Today:"Shift 2",offToday:"Off Today",working:"working",off:"off",full:"full",leaveToday:"Off Today",noLeave:"No one off ✅",shiftToday:"Today's Shifts",byDai:"By Station",persons:"ppl",empMg:"Employee Mgmt",addCSKH:"＋ Add CS",searchPh:"🔍 Search...",allLv:"All Levels",allDai:"All Stations",allSh:"All Shifts",cName:"Employee",cCode:"Code",cLv:"Level",cDai:"Station",cSh:"Shift",cNat:"Nationality",cSt:"Status",cJoin:"Joined",active:"Active",inactive:"Inactive",noRes:"Not found",sByDai:"📊 By Station",sByNat:"🌏 By Nationality",sBySh:"⏰ By Shift",leaveMg:"Leave Mgmt",addLv:"＋ Add Leave",mo:"Month",lvCnt:"leaves",allEmp:"All staff",calT:"📅 Calendar",lvList:"📋 Leave List",noLvD:"No records",lvStat:"📊 Monthly Stats",lvDay:"days",selEmp:"Employee",lvDate:"Date",lvReason:"Reason",reasons:["Leave","Annual Leave","Unpaid Leave","Early Off"],cancel:"Cancel",confirm:"✓ Confirm",alrOff:"Already off!",permT:"Permissions",permS:"By role level",pViewAll:"View All",pAdd:"Add CS",pEdit:"Edit Info",pDel:"Delete",pShift:"Assign Shift",pLeave:"Manage Leave",pVLeave:"View Own Leave",pDai:"Manage Stations",pAcct:"Manage Accounts",pSeeA:"See Admin",noteL:"💡 NOTE",noteIn:"Logged in:",noteStaff:"View own info only.",noteManage:"Can manage staff, shifts, leaves & accounts.",noteAdmin:"Full access incl. stations.",daiT:"Stations",daiS:"Add/remove (Admin)",daiPh:"New station...",addDai:"＋ Add",daiEx:"Exists!",daiW:"staff active",acctT:"Accounts",acctS:"Account list",acctU:"Username",acctP:"Password",acctE:"Employee",acctR:"Level",resetP:"Reset",resetD:"Done! → 123456",editEmp:"Edit",addEmpT:"Add CS Staff",fName:"Name *",fCode:"Code *",fJoin:"Join Date *",fNat:"Nationality",fDai:"Station *",fShift:"Shift",fLv:"Level",fPhone:"Phone",fSt:"Status",save:"💾 Save",create:"＋ Create",stA:"✅ Active",stI:"⏸ Inactive",logout:"🚪 Logout",loading:"Loading...",delCfm:"Confirm delete?",s1L:"Shift 1",s2L:"Shift 2"}
-};
-const LC=createContext("vi"); const useT=()=>L[useContext(LC)];
-
+// ============ CONSTANTS ============
 const ROLES={
   admin:{label:{vi:"Admin",zh:"Admin",en:"Admin"},lv:4,color:"#dc2626",icon:"👑"},
   manager:{label:{vi:"Tổ trưởng CSKH",zh:"组长",en:"Team Lead"},lv:3,color:"#7c3aed",icon:"💼"},
@@ -49,44 +47,138 @@ const ROLES={
 };
 const rl=(r,lg)=>(ROLES[r]?.label[lg]||r);
 const NATS=["Việt Nam","Malaysia","Myanmar","Philippines","Trung Quốc","Campuchia","Thái Lan","Indonesia","Khác"];
-const SH={0:{color:"#555",icon:"\u2014",label:{vi:"Bỏ trống",zh:"未排班",en:"None"}},1:{color:"#f59e0b",icon:"🌅",label:{vi:"Ca 1 (7h-19h)",zh:"班1(7-19)",en:"Shift 1 (7-19)"}},2:{color:"#8b5cf6",icon:"🌙",label:{vi:"Ca 2 (19h-7h)",zh:"班2(19-7)",en:"Shift 2 (19-7)"}},3:{color:"#06b6d4",icon:"☀️",label:{vi:"Ca sáng",zh:"早班",en:"Morning"}},4:{color:"#ec4899",icon:"🌃",label:{vi:"Ca tối",zh:"晚班",en:"Evening"}}};
-const getVNMonth=()=>{const d=new Date();const utc=d.getTime()+d.getTimezoneOffset()*60000;const vn=new Date(utc+7*3600000);return vn.getMonth()+1};
-const getVNMonthKey=()=>{const d=new Date();const utc=d.getTime()+d.getTimezoneOffset()*60000;const vn=new Date(utc+7*3600000);return vn.getFullYear()+"-"+String(vn.getMonth()+1).padStart(2,"0")};
+const SH={
+  0:{color:"#555",icon:"—",label:{vi:"Bỏ trống",zh:"未排班",en:"None"}},
+  1:{color:"#f59e0b",icon:"🌅",label:{vi:"Ca 1 (7h-19h)",zh:"班1(7-19)",en:"Shift 1 (7-19)"}},
+  2:{color:"#8b5cf6",icon:"🌙",label:{vi:"Ca 2 (19h-7h)",zh:"班2(19-7)",en:"Shift 2 (19-7)"}},
+  3:{color:"#06b6d4",icon:"☀️",label:{vi:"Ca sáng",zh:"早班",en:"Morning"}},
+  4:{color:"#ec4899",icon:"🌃",label:{vi:"Ca tối",zh:"晚班",en:"Evening"}}
+};
+const DEFAULT_DAIS=["NOHU","GO99","TT88","MMOO","789P","UY88"];
+const Cl={bg:"#0c0e16",sf:"#151823",card:"#1c2033",bdr:"#262b42",tx:"#e4e6f0",mu:"#7b82a0",ac:"#6366f1",acL:"#818cf8",ok:"#10b981",no:"#ef4444",wr:"#f59e0b"};
+const Fo="'DM Sans',system-ui,sans-serif";
+const FM="'JetBrains Mono',monospace";
+
+// ============ HELPERS ============
+const getVNNow=()=>{const d=new Date();return new Date(d.getTime()+d.getTimezoneOffset()*60000+7*3600000)};
+const getVNMonthKey=()=>{const v=getVNNow();return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0")};
 const canMg=r=>r==="admin"||r==="manager"||r==="leader";
 const td=()=>new Date().toISOString().split("T")[0];
 const ini=n=>(n||"?").split(" ").map(w=>(w||"")[0]||"").join("").toUpperCase().slice(0,3)||"?";
-const fmt=d=>{if(!d)return"";const p=d.split("-");return`${p[2]}/${p[1]}/${p[0]}`};
+const fmt=d=>{if(!d)return"—";const p=d.split("-");if(p.length!==3)return d;return`${p[2]}/${p[1]}/${p[0]}`};
 
-const Cl={bg:"#0c0e16",sf:"#151823",card:"#1c2033",bdr:"#262b42",tx:"#e4e6f0",mu:"#7b82a0",ac:"#6366f1",acL:"#818cf8",ok:"#10b981",no:"#ef4444",wr:"#f59e0b"};
-const Fo="'DM Sans',system-ui,sans-serif";const FM="'JetBrains Mono',monospace";
+// ============ i18n ============
+const L={
+vi:{
+  appSub:"QUẢN LÝ CSKH",login:"Đăng nhập",loginBtn:"Đăng nhập →",logging:"Đang xác thực...",username:"Tên đăng nhập",password:"Mật khẩu",loginErr:"Sai tài khoản hoặc mật khẩu!",
+  sysTitle:"Hệ thống quản lý nhân viên CSKH",hello:"Xin chào",todayL:"Hôm nay",
+  dashboard:"Dashboard",employees:"Nhân viên",leaves:"Ngày nghỉ",perms:"Phân quyền",daiMg:"Quản lý đài",acctMg:"Quản lý TK",
+  totalEmp:"Tổng nhân viên",offToday:"Nghỉ hôm nay",working:"đang làm",off:"nghỉ",
+  leaveToday:"Nghỉ hôm nay",noLeave:"Không có ai nghỉ ✅",shiftToday:"Phân ca hôm nay",byDai:"Theo đài",byShift:"Theo ca",persons:"người",
+  empMg:"Quản lý nhân viên",addCSKH:"＋ Thêm CSKH",searchPh:"🔍 Tìm tên, mã NV...",allLv:"Tất cả cấp độ",allDai:"Tất cả đài",allSh:"Tất cả ca",
+  cName:"Nhân viên",cCode:"Mã NV",cLv:"Cấp độ",cDai:"Đài",cSh:"Ca làm",cNat:"Quốc tịch",cSt:"Trạng thái",cJoin:"Ngày vào",cTrans:"Chuyển chính",
+  active:"Đang làm",inactive:"Tạm nghỉ",noRes:"Không tìm thấy",
+  sByDai:"📊 Theo đài",sByNat:"🌏 Theo quốc tịch",sBySh:"⏰ Theo ca",
+  leaveMg:"Quản lý ngày nghỉ",addLv:"＋ Thêm ngày nghỉ",mo:"Tháng",lvCnt:"lượt nghỉ",allEmp:"Tất cả NV",
+  calT:"📅 Lịch nghỉ tháng",lvList:"📋 DS nghỉ",noLvD:"Không có lịch nghỉ",lvStat:"📊 Thống kê nghỉ tháng",
+  selEmp:"Nhân viên",lvDate:"Ngày nghỉ",lvReason:"Lý do",
+  reasons:["Nghỉ phép","Nghỉ phép năm","Nghỉ không lương","Xuống ca sớm"],
+  cancel:"Huỷ",confirm:"Xác nhận",alrOff:"NV đã nghỉ ngày này!",
+  permT:"Ma trận phân quyền",permS:"Bảng quyền hạn theo cấp độ",
+  pViewAll:"Xem tất cả NV",pAdd:"Thêm NV CSKH",pEdit:"Sửa thông tin",pDel:"Xoá nhân viên",
+  pShift:"Phân ca",pLeave:"QL ngày nghỉ",pVLeave:"Xem nghỉ cá nhân",pDai:"QL đài",pAcct:"QL tài khoản",pSeeA:"Xem cấp Admin",
+  noteL:"💡 GHI CHÚ",noteIn:"Bạn đang đăng nhập:",noteStaff:"Bạn chỉ xem được thông tin cá nhân.",
+  noteManage:"Bạn có quyền quản lý NV, phân ca, nghỉ và TK.",noteAdmin:"Bạn có toàn quyền bao gồm QL đài.",
+  daiT:"Quản lý đài",daiS:"Thêm/xoá đài (Admin)",daiPh:"Tên đài mới...",addDai:"＋ Thêm đài",daiEx:"Đài đã tồn tại!",daiW:"NV đang làm",
+  acctT:"Quản lý tài khoản",acctS:"Danh sách tài khoản",acctU:"Username",acctP:"Mật khẩu",acctE:"Nhân viên",acctR:"Cấp độ",
+  resetP:"Đặt lại",resetD:"Đã reset! → 123456",
+  editEmp:"Chỉnh sửa NV",addEmpT:"Thêm NV CSKH",
+  fName:"Tên nhân viên *",fCode:"Mã nhân viên *",fJoin:"Ngày nhận việc *",fNat:"Quốc tịch",fDai:"Đài làm việc *",fShift:"Ca làm",fLv:"Cấp độ",fSt:"Trạng thái",
+  fTrans:"Ngày chuyển chính",fUser:"Username",fPass:"Mật khẩu",
+  save:"💾 Lưu",create:"＋ Tạo",stA:"✅ Đang làm",stI:"⏸ Tạm nghỉ",
+  logout:"🚪 Đăng xuất",loading:"Đang tải...",delCfm:"Bạn có chắc muốn xoá?",
+  penT:"Lỗi / KPI",addPen:"＋ Lỗi",penKpi:"KPI trừ",penReason:"Lý do lỗi",penDate:"Ngày",penList:"DS lỗi",noPen:"Không có lỗi",
+  dayOff:"Nghỉ ngày",close:"Đóng",exportExcel:"📥 Xuất Excel",batchAdd:"Thêm nghỉ hàng loạt",batchDays:"Các ngày (phân cách bằng dấu .)",batchMonth:"Tháng",batchPreview:"Xem trước",batchConfirm:"Thêm",
+  shiftSwapped:"🔄 Ca đã được đảo tự động đầu tháng (Ca 1 ↔ Ca 2)"
+},
+zh:{
+  appSub:"客服管理系统",login:"登录",loginBtn:"登录 →",logging:"验证中...",username:"用户名",password:"密码",loginErr:"用户名或密码错误！",
+  sysTitle:"客服人员管理系统",hello:"你好",todayL:"今天",
+  dashboard:"仪表板",employees:"员工",leaves:"休假",perms:"权限",daiMg:"台管理",acctMg:"账号管理",
+  totalEmp:"总员工",offToday:"今日休假",working:"在职",off:"休假",
+  leaveToday:"今日休假",noLeave:"无人休假 ✅",shiftToday:"今日排班",byDai:"按台",byShift:"按班次",persons:"人",
+  empMg:"员工管理",addCSKH:"＋ 添加客服",searchPh:"🔍 搜索...",allLv:"所有级别",allDai:"所有台",allSh:"所有班次",
+  cName:"员工",cCode:"工号",cLv:"级别",cDai:"台",cSh:"班次",cNat:"国籍",cSt:"状态",cJoin:"入职",cTrans:"转正",
+  active:"在职",inactive:"休息中",noRes:"未找到",
+  sByDai:"📊 按台",sByNat:"🌏 按国籍",sBySh:"⏰ 按班次",
+  leaveMg:"休假管理",addLv:"＋ 添加休假",mo:"月份",lvCnt:"次休假",allEmp:"所有员工",
+  calT:"📅 月度日历",lvList:"📋 休假列表",noLvD:"无记录",lvStat:"📊 月度统计",
+  selEmp:"员工",lvDate:"休假日期",lvReason:"原因",
+  reasons:["请假","年假","无薪假","提前下班"],
+  cancel:"取消",confirm:"确认",alrOff:"当天已有休假！",
+  permT:"权限矩阵",permS:"按级别划分",
+  pViewAll:"查看全部",pAdd:"添加客服",pEdit:"编辑信息",pDel:"删除员工",
+  pShift:"排班",pLeave:"管理休假",pVLeave:"查看个人休假",pDai:"管理台",pAcct:"管理账号",pSeeA:"查看Admin",
+  noteL:"💡 备注",noteIn:"当前登录：",noteStaff:"仅查看个人信息。",noteManage:"可管理员工、排班、休假和账号。",noteAdmin:"拥有全部权限。",
+  daiT:"台管理",daiS:"添加/删除台(Admin)",daiPh:"新台名...",addDai:"＋ 添加台",daiEx:"已存在！",daiW:"员工在职",
+  acctT:"账号管理",acctS:"账号列表",acctU:"用户名",acctP:"密码",acctE:"员工",acctR:"级别",
+  resetP:"重置",resetD:"已重置！→ 123456",
+  editEmp:"编辑员工",addEmpT:"添加客服",
+  fName:"姓名 *",fCode:"工号 *",fJoin:"入职日期 *",fNat:"国籍",fDai:"工作台 *",fShift:"班次",fLv:"级别",fSt:"状态",
+  fTrans:"转正日期",fUser:"用户名",fPass:"密码",
+  save:"💾 保存",create:"＋ 创建",stA:"✅ 在职",stI:"⏸ 休息中",
+  logout:"🚪 退出",loading:"加载中...",delCfm:"确定删除？",
+  penT:"扣分 / KPI",addPen:"＋ 扣分",penKpi:"扣KPI",penReason:"扣分原因",penDate:"日期",penList:"扣分列表",noPen:"无扣分",
+  dayOff:"休假日",close:"关闭",exportExcel:"📥 导出Excel",batchAdd:"批量添加休假",batchDays:"日期(用.分隔)",batchMonth:"月份",batchPreview:"预览",batchConfirm:"添加",
+  shiftSwapped:"🔄 月初已自动轮换班次（班1 ↔ 班2）"
+},
+en:{
+  appSub:"CS MANAGEMENT",login:"Login",loginBtn:"Login →",logging:"Verifying...",username:"Username",password:"Password",loginErr:"Wrong credentials!",
+  sysTitle:"CS Staff Management",hello:"Hello",todayL:"Today",
+  dashboard:"Dashboard",employees:"Employees",leaves:"Leaves",perms:"Permissions",daiMg:"Stations",acctMg:"Accounts",
+  totalEmp:"Total Staff",offToday:"Off Today",working:"working",off:"off",
+  leaveToday:"Off Today",noLeave:"No one off ✅",shiftToday:"Today's Shifts",byDai:"By Station",byShift:"By Shift",persons:"ppl",
+  empMg:"Employee Mgmt",addCSKH:"＋ Add CS",searchPh:"🔍 Search...",allLv:"All Levels",allDai:"All Stations",allSh:"All Shifts",
+  cName:"Employee",cCode:"Code",cLv:"Level",cDai:"Station",cSh:"Shift",cNat:"Nationality",cSt:"Status",cJoin:"Joined",cTrans:"Confirmed",
+  active:"Active",inactive:"Inactive",noRes:"Not found",
+  sByDai:"📊 By Station",sByNat:"🌏 By Nationality",sBySh:"⏰ By Shift",
+  leaveMg:"Leave Mgmt",addLv:"＋ Add Leave",mo:"Month",lvCnt:"leaves",allEmp:"All staff",
+  calT:"📅 Calendar",lvList:"📋 Leave List",noLvD:"No records",lvStat:"📊 Monthly Stats",
+  selEmp:"Employee",lvDate:"Date",lvReason:"Reason",
+  reasons:["Leave","Annual Leave","Unpaid Leave","Early Off"],
+  cancel:"Cancel",confirm:"Confirm",alrOff:"Already off!",
+  permT:"Permissions",permS:"By role level",
+  pViewAll:"View All",pAdd:"Add CS",pEdit:"Edit Info",pDel:"Delete",
+  pShift:"Assign Shift",pLeave:"Manage Leave",pVLeave:"View Own Leave",pDai:"Manage Stations",pAcct:"Manage Accounts",pSeeA:"See Admin",
+  noteL:"💡 NOTE",noteIn:"Logged in:",noteStaff:"View own info only.",noteManage:"Can manage staff, shifts, leaves & accounts.",noteAdmin:"Full access incl. stations.",
+  daiT:"Stations",daiS:"Add/remove (Admin)",daiPh:"New station...",addDai:"＋ Add",daiEx:"Exists!",daiW:"staff active",
+  acctT:"Accounts",acctS:"Account list",acctU:"Username",acctP:"Password",acctE:"Employee",acctR:"Level",
+  resetP:"Reset",resetD:"Done! → 123456",
+  editEmp:"Edit Employee",addEmpT:"Add CS Staff",
+  fName:"Name *",fCode:"Code *",fJoin:"Join Date *",fNat:"Nationality",fDai:"Station *",fShift:"Shift",fLv:"Level",fSt:"Status",
+  fTrans:"Confirm Date",fUser:"Username",fPass:"Password",
+  save:"💾 Save",create:"＋ Create",stA:"✅ Active",stI:"⏸ Inactive",
+  logout:"🚪 Logout",loading:"Loading...",delCfm:"Confirm delete?",
+  penT:"Penalties / KPI",addPen:"＋ Penalty",penKpi:"KPI Deduct",penReason:"Reason",penDate:"Date",penList:"Penalty List",noPen:"No penalties",
+  dayOff:"Day Off",close:"Close",exportExcel:"📥 Export Excel",batchAdd:"Batch add leave",batchDays:"Days (separated by .)",batchMonth:"Month",batchPreview:"Preview",batchConfirm:"Add",
+  shiftSwapped:"🔄 Shifts auto-swapped at month start (Shift 1 ↔ Shift 2)"
+}
+};
+const LC=createContext("vi");
+const useT=()=>L[useContext(LC)];
 
-// ============ UI Components ============
-const Av=({name,role,size=34})=>{const r=ROLES[role]||ROLES.staff;return<div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${r.color}20,${r.color}40)`,border:`2px solid ${r.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.3,fontWeight:700,color:r.color,fontFamily:FM,flexShrink:0}}>{ini(name)}</div>};
-const Bdg=({role})=>{const lg=useContext(LC);const r=ROLES[role]||ROLES.staff;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${r.color}15`,color:r.color,fontSize:10,fontWeight:600,border:`1px solid ${r.color}25`}}>{r.icon} {rl(role,lg)}</span>};
-const DBdg=({dai})=>{if(!dai||dai==="—")return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:"#06b6d415",color:"#06b6d4",fontSize:10,fontWeight:600,border:"1px solid #06b6d425"}}>🎰 {dai}</span>};
-const SBdg=({shift})=>{const lg=useContext(LC);const s=SH[shift];if(!s||shift===0)return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${s.color}15`,color:s.color,fontSize:10,fontWeight:600,border:`1px solid ${s.color}25`}}>{s.icon} {s.label[lg]}</span>};
-const SDot=({active})=>{const t=useT();return<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:active?Cl.ok:Cl.mu}}><span style={{width:6,height:6,borderRadius:"50%",background:active?Cl.ok:"#555",boxShadow:active?`0 0 6px ${Cl.ok}50`:"none"}}/>{active?t.active:t.inactive}</span>};
-
-function Btn({children,v="primary",sm,disabled,...p}){const S={primary:[Cl.ac,"#fff",Cl.acL],danger:[Cl.no,"#fff","#f87171"],ghost:["transparent",Cl.mu,Cl.card],success:[Cl.ok,"#fff","#34d399"],warn:[Cl.wr,"#fff","#fbbf24"]};const[bg,c,hv]=S[v]||S.primary;return<button disabled={disabled}{...p}style={{padding:sm?"4px 10px":"7px 16px",borderRadius:8,border:v==="ghost"?`1px solid ${Cl.bdr}`:"none",background:disabled?"#333":bg,color:disabled?"#666":c,fontSize:sm?10:12,fontWeight:600,fontFamily:Fo,cursor:disabled?"not-allowed":"pointer",transition:"all .15s",display:"inline-flex",alignItems:"center",gap:4,opacity:disabled?.5:1,...(p.style||{})}}onMouseEnter={e=>{if(!disabled){e.currentTarget.style.background=hv;e.currentTarget.style.transform="translateY(-1px)"}}}onMouseLeave={e=>{if(!disabled){e.currentTarget.style.background=bg;e.currentTarget.style.transform=""}}}>{children}</button>}
-
-function Inp({label,...p}){return<div style={{marginBottom:11}}>{label&&<label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{label}</label>}<input{...p}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box",...(p.style||{})}}onFocus={e=>e.target.style.borderColor=Cl.ac}onBlur={e=>e.target.style.borderColor=Cl.bdr}/></div>}
-
-function Sel({label,options,...p}){return<div style={{marginBottom:11}}>{label&&<label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{label}</label>}<select{...p}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box",cursor:"pointer"}}>{options.map(o=><option key={typeof o==="string"?o:o.v}value={typeof o==="string"?o:o.v}>{typeof o==="string"?o:o.l}</option>)}</select></div>}
-
-function Mod({open,onClose,title,children,wide}){if(!open)return null;return<div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.6)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}onClick={onClose}><div style={{background:Cl.sf,borderRadius:16,width:wide?660:440,maxWidth:"96vw",maxHeight:"88vh",border:`1px solid ${Cl.bdr}`,boxShadow:"0 20px 60px rgba(0,0,0,.5)",overflow:"auto"}}onClick={e=>e.stopPropagation()}><div style={{padding:"14px 20px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:Cl.sf,zIndex:1}}><h3 style={{margin:0,fontSize:15,fontWeight:700,color:Cl.tx}}>{title}</h3><button onClick={onClose}style={{background:"none",border:"none",color:Cl.mu,fontSize:18,cursor:"pointer"}}>✕</button></div><div style={{padding:20}}>{children}</div></div></div>}
-
-function SC({icon,label,value,color,sub}){return<div style={{background:Cl.card,borderRadius:12,padding:"14px 16px",border:`1px solid ${Cl.bdr}`,flex:"1 1 160px",minWidth:140,transition:"transform .2s"}}onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)"}}onMouseLeave={e=>{e.currentTarget.style.transform=""}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontSize:11,color:Cl.mu,marginBottom:4}}>{label}</div><div style={{fontSize:22,fontWeight:800,color:Cl.tx,fontFamily:FM}}>{value}</div>{sub&&<div style={{fontSize:9,color:Cl.mu,marginTop:2}}>{sub}</div>}</div><div style={{width:34,height:34,borderRadius:8,background:`${color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{icon}</div></div></div>}
-
-function LangSw({lang,setLang}){return<div style={{display:"flex",gap:2,background:Cl.card,borderRadius:8,padding:2,border:`1px solid ${Cl.bdr}`}}>{[["vi","🇻🇳"],["zh","🇨🇳"],["en","🇬🇧"]].map(([k,f])=><button key={k}onClick={()=>setLang(k)}style={{padding:"3px 8px",borderRadius:6,border:"none",background:lang===k?Cl.ac:"transparent",color:lang===k?"#fff":Cl.mu,fontSize:12,cursor:"pointer",fontWeight:600}}>{f}</button>)}</div>}
-
-// ============ DB Layer (Supabase) ============
+// ============ DB LAYER ============
 const DB={
   async loadEmps(){const{data}=await supabase.from("employees").select("*").order("id");return data||[]},
   async loadAccts(){const{data}=await supabase.from("accounts").select("*");return data||[]},
   async loadLeaves(){const{data}=await supabase.from("leaves").select("*");return data||[]},
   async loadDais(){const{data}=await supabase.from("dais").select("*").order("id");return(data||[]).map(d=>d.name)},
+  async loadPenalties(){const{data}=await supabase.from("penalties").select("*").order("date");return data||[]},
 
-  async upsertEmp(e){const row={id:e.id,name:e.name,emp_code:e.empCode,phone:e.phone||"",role:e.role,dai:e.dai,shift:e.shift,status:e.status,join_date:e.joinDate,nationality:e.nationality||"Việt Nam",transfer_date:e.transferDate||""};await supabase.from("employees").upsert(row,{onConflict:"id"})},
+  async upsertEmp(e){
+    const row={id:e.id,name:e.name,emp_code:e.empCode,phone:e.phone||"",role:e.role,dai:e.dai,shift:e.shift,status:e.status,join_date:e.joinDate,nationality:e.nationality||"Việt Nam",transfer_date:e.transferDate||""};
+    await supabase.from("employees").upsert(row,{onConflict:"id"});
+  },
   async deleteEmp(id){await supabase.from("employees").delete().eq("id",id)},
 
   async addAcct(a){await supabase.from("accounts").insert({username:a.username,password:a.password,emp_id:a.empId})},
@@ -96,11 +188,8 @@ const DB={
   async addLeave(l){await supabase.from("leaves").insert({emp_id:l.empId,date:l.date,reason:l.reason,added_by:l.addedBy})},
   async deleteLeave(empId,date){await supabase.from("leaves").delete().eq("emp_id",empId).eq("date",date)},
 
-  // Penalties
-  async loadPenalties(){const{data}=await supabase.from("penalties").select("*").order("date");return data||[]},
   async addPenalty(p){await supabase.from("penalties").insert({emp_id:p.empId,date:p.date,kpi_deduction:p.kpi,reason:p.reason,added_by:p.addedBy})},
   async deletePenalty(id){await supabase.from("penalties").delete().eq("id",id)},
-  toPen(r){return{id:r.id,empId:r.emp_id,date:r.date,kpi:r.kpi_deduction,reason:r.reason}},
 
   async addDai(name){await supabase.from("dais").insert({name})},
   async deleteDai(name){await supabase.from("dais").delete().eq("name",name)},
@@ -110,13 +199,11 @@ const DB={
   async getSetting(key){try{const{data}=await supabase.from("settings").select("value").eq("key",key).single();return data?.value||""}catch{return""}},
   async setSetting(key,value){await supabase.from("settings").upsert({key,value},{onConflict:"key"})},
 
-  // Đảo ca tự động: Ca 1 ↔ Ca 2
   async autoSwapShifts(){
     const curMonth=getVNMonthKey();
     const lastSwap=await this.getSetting("last_swap_month");
-    if(lastSwap===curMonth)return false; // Đã đảo tháng này rồi
-    if(!lastSwap){await this.setSetting("last_swap_month",curMonth);return false} // Lần đầu, chỉ lưu
-    // Đảo Ca 1 ↔ Ca 2 cho tất cả nhân viên
+    if(lastSwap===curMonth)return false;
+    if(!lastSwap){await this.setSetting("last_swap_month",curMonth);return false}
     const{data:emps}=await supabase.from("employees").select("id,shift").in("shift",[1,2]);
     if(emps&&emps.length){
       for(const e of emps){
@@ -124,268 +211,517 @@ const DB={
       }
     }
     await this.setSetting("last_swap_month",curMonth);
-    return true; // Đã đảo ca
+    return true;
   },
 
-  // Convert DB row → app format
   toEmp(r){return{id:r.id,name:r.name||"",empCode:r.emp_code||"",phone:r.phone||"",role:r.role||"staff",dai:r.dai||"—",shift:r.shift||0,status:r.status||"active",joinDate:r.join_date||"",nationality:r.nationality||"",transferDate:r.transfer_date||""}},
   toAcct(r){return{username:r.username,password:r.password,empId:r.emp_id}},
   toLv(r){return{empId:r.emp_id,date:r.date,reason:r.reason,addedBy:r.added_by}},
+  toPen(r){return{id:r.id,empId:r.emp_id,date:r.date,kpi:r.kpi_deduction,reason:r.reason}},
 };
 
-// ============ PAGES ============
+// ============ UI COMPONENTS ============
+function Av({name,role,size=34}){const r=ROLES[role]||ROLES.staff;return<div style={{width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${r.color}20,${r.color}40)`,border:`2px solid ${r.color}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.3,fontWeight:700,color:r.color,fontFamily:FM,flexShrink:0}}>{ini(name)}</div>}
 
-// --- Login ---
-function LoginP({onLogin,accts,emps}){
-  const t=useT();const lg=useContext(LC);
-  const[u,sU]=useState("");const[pw,sP]=useState("");const[err,sE]=useState("");const[ld2,sL]=useState(false);
-  const go=()=>{sL(true);sE("");setTimeout(()=>{const a=accts.find(a=>a.username===u&&a.password===pw);if(a)onLogin(a);else sE(t.loginErr);sL(false)},400)};
-  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:`linear-gradient(135deg,${Cl.bg},#1a1040,${Cl.bg})`,fontFamily:Fo,padding:20}}>
-    <div style={{width:400,maxWidth:"95vw",background:Cl.sf,borderRadius:20,padding:"32px 28px",border:`1px solid ${Cl.bdr}`}}>
-      <div style={{textAlign:"center",marginBottom:24}}><div style={{width:56,height:56,borderRadius:14,margin:"0 auto 12px",background:"linear-gradient(135deg,#f59e0b,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:900,color:"#fff",fontFamily:FM}}>N</div><h1 style={{margin:0,fontSize:20,fontWeight:900,color:Cl.tx}}>NOHU</h1><p style={{margin:"4px 0 0",color:Cl.mu,fontSize:11}}>{t.sysTitle}</p></div>
-      <Inp label={t.username} value={u} onChange={e=>sU(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}/>
-      <Inp label={t.password} type="password" value={pw} onChange={e=>sP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}/>
-      {err&&<div style={{padding:"8px 12px",borderRadius:8,marginBottom:10,background:`${Cl.no}12`,color:Cl.no,fontSize:11}}>{err}</div>}
-      <Btn onClick={go} style={{width:"100%",justifyContent:"center"}} disabled={ld2}>{ld2?t.logging:t.loginBtn}</Btn>
+function Bdg({role}){const lg=useContext(LC);const r=ROLES[role]||ROLES.staff;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${r.color}15`,color:r.color,fontSize:10,fontWeight:600,border:`1px solid ${r.color}25`}}>{r.icon} {rl(role,lg)}</span>}
+
+function DBdg({dai}){if(!dai||dai==="—")return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:"#06b6d415",color:"#06b6d4",fontSize:10,fontWeight:600,border:"1px solid #06b6d425"}}>🎰 {dai}</span>}
+
+function SBdg({shift}){const lg=useContext(LC);const s=SH[shift];if(!s||shift===0)return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${s.color}15`,color:s.color,fontSize:10,fontWeight:600,border:`1px solid ${s.color}25`}}>{s.icon} {s.label[lg]}</span>}
+
+function SDot({active}){const t=useT();return<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:active?Cl.ok:Cl.mu}}><span style={{width:6,height:6,borderRadius:"50%",background:active?Cl.ok:"#555",boxShadow:active?`0 0 6px ${Cl.ok}50`:"none"}}/>{active?t.active:t.inactive}</span>}
+
+function Btn({children,v="primary",sm,disabled,...p}){
+  const S={primary:[Cl.ac,"#fff",Cl.acL],danger:[Cl.no,"#fff","#f87171"],ghost:["transparent",Cl.mu,Cl.card],success:[Cl.ok,"#fff","#34d399"],warn:[Cl.wr,"#fff","#fbbf24"]};
+  const[bg,c,hv]=S[v]||S.primary;
+  return<button disabled={disabled}{...p}style={{padding:sm?"4px 10px":"7px 16px",borderRadius:8,border:v==="ghost"?`1px solid ${Cl.bdr}`:"none",background:disabled?"#333":bg,color:disabled?"#666":c,fontSize:sm?10:12,fontWeight:600,fontFamily:Fo,cursor:disabled?"not-allowed":"pointer",transition:"all .15s",display:"inline-flex",alignItems:"center",gap:4,opacity:disabled?.5:1,...(p.style||{})}}onMouseEnter={e=>{if(!disabled){e.currentTarget.style.background=hv;e.currentTarget.style.transform="translateY(-1px)"}}}onMouseLeave={e=>{if(!disabled){e.currentTarget.style.background=disabled?"#333":bg;e.currentTarget.style.transform=""}}}>{children}</button>
+}
+
+function Inp({label,...p}){return<div style={{marginBottom:11}}>{label&&<label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{label}</label>}<input{...p}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box",...(p.style||{})}}onFocus={e=>e.target.style.borderColor=Cl.ac}onBlur={e=>e.target.style.borderColor=Cl.bdr}/></div>}
+
+function Sel({label,options,...p}){return<div style={{marginBottom:11}}>{label&&<label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{label}</label>}<select{...p}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box",cursor:"pointer",...(p.style||{})}}>{options.map(o=><option key={typeof o==="string"?o:o.v}value={typeof o==="string"?o:o.v}>{typeof o==="string"?o:o.l}</option>)}</select></div>}
+
+function Mod({open,onClose,title,children,wide}){
+  if(!open)return null;
+  return<div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,.6)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}onClick={onClose}>
+    <div className="slide-in" style={{background:Cl.sf,borderRadius:16,width:wide?680:440,maxWidth:"96vw",maxHeight:"88vh",border:`1px solid ${Cl.bdr}`,boxShadow:"0 20px 60px rgba(0,0,0,.5)",overflow:"auto"}}onClick={e=>e.stopPropagation()}>
+      <div style={{padding:"14px 20px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:Cl.sf,zIndex:1}}>
+        <h3 style={{margin:0,fontSize:15,fontWeight:700,color:Cl.tx}}>{title}</h3>
+        <button onClick={onClose}style={{background:"none",border:"none",color:Cl.mu,fontSize:18,cursor:"pointer"}}>✕</button>
+      </div>
+      <div style={{padding:20}}>{children}</div>
     </div>
   </div>;
 }
 
-// --- Dashboard ---
+function SC({icon,label,value,color,sub}){
+  return<div style={{background:Cl.card,borderRadius:12,padding:"14px 16px",border:`1px solid ${Cl.bdr}`,flex:"1 1 140px",minWidth:130,transition:"transform .2s"}}onMouseEnter={e=>e.currentTarget.style.transform="translateY(-2px)"}onMouseLeave={e=>e.currentTarget.style.transform=""}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div><div style={{fontSize:11,color:Cl.mu,marginBottom:4}}>{label}</div><div style={{fontSize:22,fontWeight:800,color:Cl.tx,fontFamily:FM}}>{value}</div>{sub&&<div style={{fontSize:9,color:Cl.mu,marginTop:2}}>{sub}</div>}</div>
+      <div style={{width:34,height:34,borderRadius:8,background:`${color}15`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{icon}</div>
+    </div>
+  </div>;
+}
+
+function LangSw({lang,setLang}){return<div style={{display:"flex",gap:2,background:Cl.card,borderRadius:8,padding:2,border:`1px solid ${Cl.bdr}`}}>{[["vi","🇻🇳"],["zh","🇨🇳"],["en","🇬🇧"]].map(([k,f])=><button key={k}onClick={()=>setLang(k)}style={{padding:"3px 8px",borderRadius:6,border:"none",background:lang===k?Cl.ac:"transparent",color:lang===k?"#fff":Cl.mu,fontSize:12,cursor:"pointer",fontWeight:600}}>{f}</button>)}</div>}
+
+// ============ LOGIN ============
+function LoginP({onLogin,accts,emps}){
+  const t=useT();const lg=useContext(LC);
+  const[u,sU]=useState("");const[pw,sP]=useState("");const[err,sE]=useState("");const[ld,sL]=useState(false);
+  const go=()=>{sL(true);sE("");setTimeout(()=>{const a=accts.find(a=>a.username===u&&a.password===pw);if(a)onLogin(a);else sE(t.loginErr);sL(false)},400)};
+  return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:`linear-gradient(135deg,${Cl.bg},#1a1040,${Cl.bg})`,fontFamily:Fo,padding:20}}>
+    <div className="fade-in" style={{width:400,maxWidth:"95vw",background:Cl.sf,borderRadius:20,padding:"32px 28px",border:`1px solid ${Cl.bdr}`,boxShadow:"0 16px 48px rgba(0,0,0,.4)"}}>
+      <div style={{textAlign:"center",marginBottom:24}}>
+        <div style={{width:56,height:56,borderRadius:14,margin:"0 auto 12px",background:"linear-gradient(135deg,#f59e0b,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:900,color:"#fff",fontFamily:FM}}>N</div>
+        <h1 style={{margin:0,fontSize:20,fontWeight:900,color:Cl.tx}}>NOHU</h1>
+        <p style={{margin:"4px 0 0",color:Cl.mu,fontSize:11}}>{t.sysTitle}</p>
+      </div>
+      <Inp label={t.username} value={u} onChange={e=>sU(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}/>
+      <Inp label={t.password} type="password" value={pw} onChange={e=>sP(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}/>
+      {err&&<div style={{padding:"8px 12px",borderRadius:8,marginBottom:10,background:`${Cl.no}12`,color:Cl.no,fontSize:11,fontWeight:600}}>{err}</div>}
+      <Btn onClick={go} style={{width:"100%",justifyContent:"center"}} disabled={ld}>{ld?t.logging:t.loginBtn}</Btn>
+    </div>
+  </div>;
+}
+
+// ============ DASHBOARD ============
 function DashP({emps,leaves,cur,dais}){
-  const t=useT();const tdy=td();const act=emps.filter(e=>e.status==="active");
+  const t=useT();const lg=useContext(LC);const tdy=td();
+  const act=emps.filter(e=>e.status==="active");
   const tL=leaves.filter(l=>l.date===tdy);const oIds=new Set(tL.map(l=>l.empId));
-  const s1=act.filter(e=>e.shift===1&&!oIds.has(e.id));const s2=act.filter(e=>e.shift===2&&!oIds.has(e.id));
-  return<div>
-    <div style={{marginBottom:18}}><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.hello}, {cur.name} {ROLES[cur.role].icon}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{t.todayL}: {fmt(tdy)}</p></div>
+  // Shift counts for active staff not off today
+  const shiftCounts=[1,2,3,4].map(s=>({s,count:act.filter(e=>e.shift===s&&!oIds.has(e.id)).length}));
+
+  return<div className="fade-in">
+    <div style={{marginBottom:18}}>
+      <h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.hello}, {cur.name} {ROLES[cur.role].icon}</h2>
+      <p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{t.todayL}: {fmt(tdy)}</p>
+    </div>
+
+    {/* Stats Cards */}
     <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:16}}>
       <SC icon="👥" label={t.totalEmp} value={emps.length} color={Cl.ac} sub={`${act.length} ${t.working}`}/>
-      <SC icon="🌅" label={t.s1Today} value={s1.length} color="#f59e0b" sub="06:00–14:00"/>
-      <SC icon="🌙" label={t.s2Today} value={s2.length} color="#8b5cf6" sub="14:00–22:00"/>
       <SC icon="🏖️" label={t.offToday} value={tL.length} color={Cl.no}/>
+      {shiftCounts.map(({s,count})=><SC key={s} icon={SH[s].icon} label={SH[s].label[lg]} value={count} color={SH[s].color}/>)}
     </div>
+
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      {/* Off today */}
       <div style={{background:Cl.card,borderRadius:12,padding:16,border:`1px solid ${Cl.bdr}`}}>
         <h4 style={{margin:"0 0 10px",fontSize:12,color:Cl.tx,fontWeight:700}}>🏖️ {t.leaveToday}</h4>
         {tL.length===0?<div style={{padding:14,textAlign:"center",color:Cl.mu,fontSize:11}}>{t.noLeave}</div>
         :tL.map((l,i)=>{const e=emps.find(x=>x.id===l.empId);if(!e)return null;return<div key={i}style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:8,background:Cl.sf,marginBottom:4,border:`1px solid ${Cl.bdr}`}}><Av name={e.name}role={e.role}size={26}/><div style={{flex:1}}><div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:9,color:Cl.mu}}>{e.dai} · {l.reason}</div></div><SBdg shift={e.shift}/></div>})}
       </div>
+
+      {/* Shifts today */}
       <div style={{background:Cl.card,borderRadius:12,padding:16,border:`1px solid ${Cl.bdr}`}}>
         <h4 style={{margin:"0 0 10px",fontSize:12,color:Cl.tx,fontWeight:700}}>📋 {t.shiftToday}</h4>
-        {[1,2].map(s=>{const list=s===1?s1:s2;return<div key={s}style={{marginBottom:s===1?10:0}}><div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><SBdg shift={s}/><span style={{fontSize:10,color:Cl.mu}}>— {list.length} {t.persons}</span></div><div style={{display:"flex",flexWrap:"wrap",gap:3}}>{list.map(e=><div key={e.id}style={{padding:"3px 6px",borderRadius:6,background:Cl.sf,border:`1px solid ${Cl.bdr}`,fontSize:10,color:Cl.tx}}>{e.name}</div>)}</div></div>})}
+        {[1,2,3,4].map(s=>{const list=act.filter(e=>e.shift===s&&!oIds.has(e.id));if(list.length===0)return null;return<div key={s}style={{marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:5}}><SBdg shift={s}/><span style={{fontSize:10,color:Cl.mu}}>— {list.length} {t.persons}</span></div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>{list.map(e=><div key={e.id}style={{padding:"3px 6px",borderRadius:6,background:Cl.sf,border:`1px solid ${Cl.bdr}`,fontSize:10,color:Cl.tx}}>{e.name}</div>)}</div>
+        </div>})}
       </div>
     </div>
+
+    {/* By station */}
     <div style={{marginTop:12,background:Cl.card,borderRadius:12,padding:16,border:`1px solid ${Cl.bdr}`}}>
       <h4 style={{margin:"0 0 10px",fontSize:12,color:Cl.tx,fontWeight:700}}>🎰 {t.byDai}</h4>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:6}}>
-        {dais.map(d=>{const cnt=act.filter(e=>e.dai===d).length;return<div key={d}style={{padding:"8px 10px",borderRadius:8,background:Cl.sf,border:`1px solid ${Cl.bdr}`}}><div style={{fontSize:12,fontWeight:700,color:"#06b6d4"}}>🎰 {d}</div><div style={{fontSize:10,color:Cl.mu}}>{cnt} NV</div></div>})}
+        {dais.map(d=>{const cnt=act.filter(e=>e.dai===d).length;return<div key={d}style={{padding:"8px 10px",borderRadius:8,background:Cl.sf,border:`1px solid ${Cl.bdr}`}}><div style={{fontSize:12,fontWeight:700,color:"#06b6d4"}}>🎰 {d}</div><div style={{fontSize:10,color:Cl.mu}}>{cnt} {t.persons}</div></div>})}
       </div>
     </div>
   </div>;
 }
 
-// --- Employees ---
-function EmpP({emps,cur,dais,onEdit,onAdd,onShift,onDel}){
+// ============ EMPLOYEES ============
+function EmpP({emps,cur,dais,onEdit,onAdd,onDel}){
   const t=useT();const lg=useContext(LC);
   const[search,sS]=useState("");const[fR,sFR]=useState("all");const[fD,sFD]=useState("all");const[fSh,sFSh]=useState("all");
   const mg=canMg(cur.role);const isA=cur.role==="admin";const act=emps.filter(e=>e.status==="active");
   const vR=Object.entries(ROLES).filter(([k])=>isA||k!=="admin");
-  const filtered=emps.filter(e=>{if(cur.role==="staff"&&e.id!==cur.id)return false;if(!isA&&e.role==="admin")return false;if(search&&!e.name.toLowerCase().includes(search.toLowerCase())&&!(e.empCode||"").toLowerCase().includes(search.toLowerCase()))return false;if(fR!=="all"&&e.role!==fR)return false;if(fD!=="all"&&e.dai!==fD)return false;if(fSh!=="all"&&e.shift!==Number(fSh))return false;return true});
-  const natS={};act.forEach(e=>{natS[e.nationality||"Khác"]=(natS[e.nationality||"Khác"]||0)+1});
+
+  const filtered=useMemo(()=>emps.filter(e=>{
+    if(cur.role==="staff"&&e.id!==cur.id)return false;
+    if(!isA&&e.role==="admin")return false;
+    if(search&&!e.name.toLowerCase().includes(search.toLowerCase())&&!(e.empCode||"").toLowerCase().includes(search.toLowerCase()))return false;
+    if(fR!=="all"&&e.role!==fR)return false;
+    if(fD!=="all"&&e.dai!==fD)return false;
+    if(fSh!=="all"&&e.shift!==Number(fSh))return false;
+    return true;
+  }),[emps,cur,search,fR,fD,fSh,isA]);
+
+  const natS={};act.forEach(e=>{const k=e.nationality||"Khác";natS[k]=(natS[k]||0)+1});
   const daiS={};dais.forEach(d=>{daiS[d]=act.filter(e=>e.dai===d).length});
   const shCounts=Object.keys(SH).map(Number).filter(s=>s>0).map(s=>({s,c:act.filter(e=>e.shift===s).length}));
 
-  // Excel Export
   const exportExcel=()=>{
-    const lg2=lg;const staff=filtered.filter(e=>e.role==="staff");
+    const staff=filtered.filter(e=>e.role==="staff");
     const sorted=[...staff].sort((a,b)=>{if(a.shift!==b.shift)return a.shift-b.shift;return(a.nationality||"").localeCompare(b.nationality||"")});
     const rows=sorted.map(e=>({
-      "Mã NV":e.empCode,"Tên":e.name,"Cấp độ":rl(e.role,lg2),
-      "Đài":e.dai,"Ca làm":SH[e.shift]?.label[lg2]||"—",
+      "Mã NV":e.empCode,"Tên":e.name,"Cấp độ":rl(e.role,lg),
+      "Đài":e.dai,"Ca làm":SH[e.shift]?.label[lg]||"—",
       "Quốc tịch":e.nationality||"","Trạng thái":e.status==="active"?"Đang làm":"Tạm nghỉ",
-      "Ngày vào":e.joinDate||"","Ngày chuyển chính":e.transferDate||"","SĐT":e.phone||""
+      "Ngày vào":fmt(e.joinDate),"Ngày chuyển chính":fmt(e.transferDate)
     }));
-    const ws=XLSX.utils.json_to_sheet(rows);
-    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Nhân viên");
+    const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"Nhân viên");
     XLSX.writeFile(wb,`NOHU_NhanVien_${td()}.xlsx`);
   };
 
-  return<div>
+  return<div className="fade-in">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
       <div><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.empMg}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{filtered.length} {t.cName}</p></div>
-      <div style={{display:"flex",gap:6}}>{mg&&<Btn v="warn" onClick={exportExcel}>📥 Excel</Btn>}{mg&&<Btn onClick={onAdd}>{t.addCSKH}</Btn>}</div>
+      <div style={{display:"flex",gap:6}}>{mg&&<Btn v="warn" onClick={exportExcel}>{t.exportExcel}</Btn>}{mg&&<Btn onClick={onAdd}>{t.addCSKH}</Btn>}</div>
     </div>
+
+    {/* Stats */}
     {mg&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
-      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sByDai}</h5>{dais.map(d=><div key={d}style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:10}}><span style={{color:"#06b6d4"}}>🎰 {d}</span><span style={{color:Cl.tx,fontFamily:FM,fontWeight:700}}>{daiS[d]||0}</span></div>)}</div>
-      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sByNat}</h5>{Object.entries(natS).sort((a,b)=>b[1]-a[1]).map(([n,c])=><div key={n}style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:10}}><span style={{color:Cl.tx}}>{n}</span><span style={{color:Cl.acL,fontFamily:FM,fontWeight:700}}>{c}</span></div>)}</div>
-      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}><h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sBySh}</h5>{shCounts.map(({s,c})=><div key={s}style={{marginBottom:5}}><div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}><span style={{color:Cl.tx}}>{SH[s].icon} {SH[s].label[lg]}</span><span style={{color:SH[s].color,fontFamily:FM,fontWeight:700}}>{c}</span></div><div style={{height:4,borderRadius:2,background:Cl.bg}}><div style={{height:"100%",borderRadius:2,width:`${act.length?Math.round(c/act.length*100):0}%`,background:SH[s].color}}/></div></div>)}</div>
+      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}>
+        <h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sByDai}</h5>
+        {dais.map(d=><div key={d}style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:10}}><span style={{color:"#06b6d4"}}>🎰 {d}</span><span style={{color:Cl.tx,fontFamily:FM,fontWeight:700}}>{daiS[d]||0}</span></div>)}
+      </div>
+      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}>
+        <h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sByNat}</h5>
+        {Object.entries(natS).sort((a,b)=>b[1]-a[1]).map(([n,c])=><div key={n}style={{display:"flex",justifyContent:"space-between",padding:"2px 0",fontSize:10}}><span style={{color:Cl.tx}}>{n}</span><span style={{color:Cl.acL,fontFamily:FM,fontWeight:700}}>{c}</span></div>)}
+      </div>
+      <div style={{background:Cl.card,borderRadius:10,padding:"12px 14px",border:`1px solid ${Cl.bdr}`}}>
+        <h5 style={{margin:"0 0 6px",fontSize:10,color:Cl.tx,fontWeight:700}}>{t.sBySh}</h5>
+        {shCounts.map(({s,c})=><div key={s}style={{marginBottom:5}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:10,marginBottom:2}}><span style={{color:Cl.tx}}>{SH[s].icon} {SH[s].label[lg]}</span><span style={{color:SH[s].color,fontFamily:FM,fontWeight:700}}>{c}</span></div>
+          <div style={{height:4,borderRadius:2,background:Cl.bg}}><div style={{height:"100%",borderRadius:2,width:`${act.length?Math.round(c/act.length*100):0}%`,background:SH[s].color,transition:"width .3s"}}/></div>
+        </div>)}
+      </div>
     </div>}
+
+    {/* Filters */}
     <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap",padding:"10px 12px",borderRadius:10,background:Cl.card,border:`1px solid ${Cl.bdr}`}}>
       <input placeholder={t.searchPh} value={search} onChange={e=>sS(e.target.value)} style={{flex:"1 1 140px",padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,outline:"none",boxSizing:"border-box"}}/>
       <select value={fR} onChange={e=>sFR(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allLv}</option>{vR.map(([k,v])=><option key={k}value={k}>{v.icon} {rl(k,lg)}</option>)}</select>
       <select value={fD} onChange={e=>sFD(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allDai}</option>{dais.map(d=><option key={d}value={d}>🎰 {d}</option>)}</select>
-      <select value={fSh} onChange={e=>sFSh(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allSh}</option>{Object.entries(SH).filter(([k])=>Number(k)>0).map(([k,v])=><option key={k} value={k}>{v.icon} {v.label[lg]}</option>)}</select>
+      <select value={fSh} onChange={e=>sFSh(e.target.value)} style={{padding:"6px 8px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo,cursor:"pointer"}}><option value="all">{t.allSh}</option>{Object.entries(SH).filter(([k])=>Number(k)>0).map(([k,v])=><option key={k}value={k}>{v.icon} {v.label[lg]}</option>)}</select>
     </div>
-    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}><thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>{[t.cName,t.cCode,t.cLv,t.cDai,t.cSh,t.cNat,"Chuyển chính",t.cSt,t.cJoin,""].map((h,i)=><th key={i}style={{padding:"9px 8px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}</tr></thead>
-    <tbody>{filtered.map(e=><tr key={e.id}style={{borderBottom:`1px solid ${Cl.bdr}06`}}onMouseEnter={ev=>ev.currentTarget.style.background=`${Cl.ac}05`}onMouseLeave={ev=>ev.currentTarget.style.background=""}>
-      <td style={{padding:"7px 8px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><Av name={e.name}role={e.role}size={28}/><div style={{fontSize:11,fontWeight:600,color:Cl.tx}}>{e.name}</div></div></td>
-      <td style={{padding:"7px 8px",fontSize:10,color:Cl.acL,fontFamily:FM,fontWeight:600}}>{e.empCode}</td>
-      <td style={{padding:"7px 8px"}}><Bdg role={e.role}/></td>
-      <td style={{padding:"7px 8px"}}><DBdg dai={e.dai}/></td>
-      <td style={{padding:"7px 8px"}}><SBdg shift={e.shift}/></td>
-      <td style={{padding:"7px 8px",fontSize:10,color:Cl.tx}}>{e.nationality||"—"}</td>
-      <td style={{padding:"7px 8px",fontSize:10,color:e.transferDate?Cl.ok:Cl.mu,fontFamily:FM}}>{e.transferDate?fmt(e.transferDate):"—"}</td>
-      <td style={{padding:"7px 8px"}}><SDot active={e.status==="active"}/></td>
-      <td style={{padding:"7px 8px",fontSize:10,color:Cl.mu,fontFamily:FM}}>{fmt(e.joinDate)}</td>
-      <td style={{padding:"7px 8px"}}>{mg&&<div style={{display:"flex",gap:2}}><Btn v="ghost"sm onClick={()=>onEdit(e)}>✏️</Btn><Btn v="ghost"sm onClick={()=>onDel(e)}style={{color:Cl.no}}>🗑</Btn></div>}</td>
-    </tr>)}</tbody></table></div>
-    {filtered.length===0&&<div style={{padding:20,textAlign:"center",color:Cl.mu,fontSize:11}}>{t.noRes}</div>}</div>
+
+    {/* Table */}
+    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
+          <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
+            {[t.cName,t.cCode,t.cLv,t.cDai,t.cSh,t.cNat,t.cTrans,t.cSt,t.cJoin,""].map((h,i)=><th key={i}style={{padding:"9px 8px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{filtered.map(e=><tr key={e.id}style={{borderBottom:`1px solid ${Cl.bdr}06`}}onMouseEnter={ev=>ev.currentTarget.style.background=`${Cl.ac}05`}onMouseLeave={ev=>ev.currentTarget.style.background=""}>
+            <td style={{padding:"7px 8px"}}><div style={{display:"flex",alignItems:"center",gap:6}}><Av name={e.name}role={e.role}size={28}/><div style={{fontSize:11,fontWeight:600,color:Cl.tx}}>{e.name}</div></div></td>
+            <td style={{padding:"7px 8px",fontSize:10,color:Cl.acL,fontFamily:FM,fontWeight:600}}>{e.empCode}</td>
+            <td style={{padding:"7px 8px"}}><Bdg role={e.role}/></td>
+            <td style={{padding:"7px 8px"}}><DBdg dai={e.dai}/></td>
+            <td style={{padding:"7px 8px"}}><SBdg shift={e.shift}/></td>
+            <td style={{padding:"7px 8px",fontSize:10,color:Cl.tx}}>{e.nationality||"—"}</td>
+            <td style={{padding:"7px 8px",fontSize:10,color:e.transferDate?Cl.ok:Cl.mu,fontFamily:FM}}>{e.transferDate?fmt(e.transferDate):"—"}</td>
+            <td style={{padding:"7px 8px"}}><SDot active={e.status==="active"}/></td>
+            <td style={{padding:"7px 8px",fontSize:10,color:Cl.mu,fontFamily:FM}}>{fmt(e.joinDate)}</td>
+            <td style={{padding:"7px 8px"}}>{mg&&<div style={{display:"flex",gap:2}}><Btn v="ghost"sm onClick={()=>onEdit(e)}>✏️</Btn><Btn v="ghost"sm onClick={()=>onDel(e)}style={{color:Cl.no}}>🗑</Btn></div>}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      {filtered.length===0&&<div style={{padding:20,textAlign:"center",color:Cl.mu,fontSize:11}}>{t.noRes}</div>}
+    </div>
   </div>;
 }
 
-// --- Leaves (simplified for space) ---
-function LeaveP({emps,leaves,cur,onAdd,onDel}){
-  const t=useT();const mg=canMg(cur.role);const isA=cur.role==="admin";
+// ============ LEAVES ============
+function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
+  const t=useT();const lg=useContext(LC);const mg=canMg(cur.role);const isA=cur.role==="admin";
   const[selE,sSE]=useState("");const[month,sM]=useState(td().slice(0,7));
+  const[addM,sAM]=useState(false);const[penM,sPM]=useState(false);const[dayM,sDM]=useState(null);
   const vE=cur.role==="staff"?emps.filter(e=>e.id===cur.id):emps.filter(e=>isA||e.role!=="admin");
   const mL=leaves.filter(l=>l.date.startsWith(month));const dL=selE?mL.filter(l=>l.empId===selE):mL;
   const[y,m]=month.split("-").map(Number);const dim=new Date(y,m,0).getDate();const fd=new Date(y,m-1,1).getDay();
-  const[addM,sAM]=useState(false);const[af,sAF]=useState({empId:"",date:td(),reason:t.reasons[0]});
 
-  return<div>
+  // Batch add form
+  const[af,sAF]=useState({empId:"",month:month,days:"",reason:t.reasons[0]});
+  // Penalty form
+  const[pf,sPF]=useState({empId:"",date:td(),kpi:1,reason:""});
+
+  // Month penalties
+  const mPens=pens.filter(p=>p.date&&p.date.startsWith(month));
+
+  return<div className="fade-in">
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
       <div><h2 style={{margin:0,fontSize:18,fontWeight:800,color:Cl.tx}}>{t.leaveMg}</h2><p style={{margin:"3px 0 0",color:Cl.mu,fontSize:11}}>{t.mo} {m}/{y} — {mL.length} {t.lvCnt}</p></div>
-      {mg&&<Btn onClick={()=>{const nm=new Date();nm.setMonth(nm.getMonth()+1);const nms=nm.toISOString().slice(0,7);sAF({empId:vE.find(e=>e.status==="active")?.id||"",month:nms,days:"",reason:t.reasons[0]});sAM(true)}}>{t.addLv}</Btn>}
+      {mg&&<div style={{display:"flex",gap:6}}>
+        <Btn v="danger" onClick={()=>{sPF({empId:vE.find(e=>e.status==="active")?.id||"",date:td(),kpi:1,reason:""});sPM(true)}}>⚠️ {t.addPen}</Btn>
+        <Btn onClick={()=>{sAF({empId:vE.find(e=>e.status==="active")?.id||"",month:month,days:"",reason:t.reasons[0]});sAM(true)}}>{t.addLv}</Btn>
+      </div>}
     </div>
+
+    {/* Filters */}
     <div style={{display:"flex",gap:6,marginBottom:12}}>
       <input type="month"value={month}onChange={e=>sM(e.target.value)}style={{padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo}}/>
       <select value={selE}onChange={e=>sSE(e.target.value)}style={{padding:"6px 10px",borderRadius:7,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:Fo}}><option value="">{t.allEmp}</option>{vE.map(e=><option key={e.id}value={e.id}>{e.name}</option>)}</select>
     </div>
+
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      {/* Calendar */}
       <div style={{background:Cl.card,borderRadius:12,padding:14,border:`1px solid ${Cl.bdr}`}}>
         <h4 style={{margin:"0 0 8px",fontSize:12,color:Cl.tx,fontWeight:700}}>{t.calT} {m}</h4>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,textAlign:"center"}}>
           {["CN","T2","T3","T4","T5","T6","T7"].map(d=><div key={d}style={{fontSize:9,color:Cl.mu,fontWeight:600,padding:2}}>{d}</div>)}
           {Array.from({length:fd}).map((_,i)=><div key={`p${i}`}/>)}
-          {Array.from({length:dim},(_,i)=>i+1).map(d=>{const ds=`${month}-${String(d).padStart(2,"0")}`;const dl=dL.filter(l=>l.date===ds);const it=ds===td();return<div key={d}style={{padding:"4px 1px",borderRadius:6,minHeight:28,background:it?`${Cl.ac}18`:dl.length?`${Cl.no}10`:"transparent",border:it?`1px solid ${Cl.ac}40`:dl.length?`1px solid ${Cl.no}20`:"1px solid transparent"}}><div style={{fontSize:10,fontWeight:it?700:500,color:it?Cl.acL:Cl.tx}}>{d}</div>{dl.length>0&&<div style={{fontSize:8,color:Cl.no,fontWeight:600}}>{dl.length}</div>}</div>})}
+          {Array.from({length:dim},(_,i)=>i+1).map(day=>{
+            const ds=`${month}-${String(day).padStart(2,"0")}`;
+            const dl=dL.filter(l=>l.date===ds);const it=ds===td();
+            return<div key={day}onClick={()=>{if(dl.length>0)sDM({date:ds,leaves:dl})}} style={{padding:"4px 1px",borderRadius:6,minHeight:28,cursor:dl.length?"pointer":"default",background:it?`${Cl.ac}18`:dl.length?`${Cl.no}10`:"transparent",border:it?`1px solid ${Cl.ac}40`:dl.length?`1px solid ${Cl.no}20`:"1px solid transparent",transition:"all .15s"}}onMouseEnter={e=>{if(dl.length)e.currentTarget.style.background=`${Cl.no}20`}}onMouseLeave={e=>{e.currentTarget.style.background=it?`${Cl.ac}18`:dl.length?`${Cl.no}10`:"transparent"}}>
+              <div style={{fontSize:10,fontWeight:it?700:500,color:it?Cl.acL:Cl.tx}}>{day}</div>
+              {dl.length>0&&<div style={{fontSize:8,color:Cl.no,fontWeight:600}}>{dl.length}</div>}
+            </div>
+          })}
         </div>
       </div>
+
+      {/* Leave list */}
       <div style={{background:Cl.card,borderRadius:12,padding:14,border:`1px solid ${Cl.bdr}`}}>
         <h4 style={{margin:"0 0 8px",fontSize:12,color:Cl.tx,fontWeight:700}}>{t.lvList} ({dL.length})</h4>
         <div style={{maxHeight:280,overflow:"auto"}}>
           {dL.length===0&&<div style={{padding:14,textAlign:"center",color:Cl.mu,fontSize:11}}>{t.noLvD}</div>}
-          {[...dL].sort((a,b)=>a.date.localeCompare(b.date)).map((l,i)=>{const e=emps.find(x=>x.id===l.empId);if(!e)return null;return<div key={i}style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:7,background:Cl.sf,marginBottom:3,border:`1px solid ${Cl.bdr}`}}><Av name={e.name}role={e.role}size={22}/><div style={{flex:1}}><div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:9,color:Cl.mu}}>{fmt(l.date)} · {l.reason}</div></div>{mg&&<Btn v="ghost"sm onClick={()=>onDel(l)}style={{color:Cl.no}}>✕</Btn>}</div>})}
+          {[...dL].sort((a,b)=>a.date.localeCompare(b.date)).map((l,i)=>{const e=emps.find(x=>x.id===l.empId);if(!e)return null;return<div key={i}style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:7,background:Cl.sf,marginBottom:3,border:`1px solid ${Cl.bdr}`}}>
+            <Av name={e.name}role={e.role}size={22}/>
+            <div style={{flex:1}}><div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:9,color:Cl.mu}}>{fmt(l.date)} · {l.reason}</div></div>
+            {mg&&<Btn v="ghost"sm onClick={()=>onDel(l)}style={{color:Cl.no}}>✕</Btn>}
+          </div>})}
         </div>
       </div>
     </div>
-    <Mod open={addM}onClose={()=>sAM(false)}title="📅 Thêm lịch nghỉ tháng" wide>
+
+    {/* Penalties section */}
+    <div style={{marginTop:12,background:Cl.card,borderRadius:12,padding:14,border:`1px solid ${Cl.bdr}`}}>
+      <h4 style={{margin:"0 0 8px",fontSize:12,color:Cl.tx,fontWeight:700}}>⚠️ {t.penT} — {t.mo} {m}/{y} ({mPens.length})</h4>
+      {mPens.length===0?<div style={{padding:10,textAlign:"center",color:Cl.mu,fontSize:11}}>{t.noPen}</div>
+      :<div style={{maxHeight:200,overflow:"auto"}}>{mPens.map((p,i)=>{const e=emps.find(x=>x.id===p.empId);return<div key={p.id||i}style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",borderRadius:7,background:Cl.sf,marginBottom:3,border:`1px solid ${Cl.bdr}`}}>
+        <Av name={e?.name||"?"} role={e?.role||"staff"} size={22}/>
+        <div style={{flex:1}}>
+          <div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e?.name||"?"} <span style={{color:Cl.no,fontFamily:FM,fontWeight:700}}>-{p.kpi} KPI</span></div>
+          <div style={{fontSize:9,color:Cl.mu}}>{fmt(p.date)} · {p.reason}</div>
+        </div>
+        {mg&&<Btn v="ghost"sm onClick={()=>onDelPen(p.id)}style={{color:Cl.no}}>✕</Btn>}
+      </div>})}</div>}
+    </div>
+
+    {/* Batch Leave Modal */}
+    <Mod open={addM}onClose={()=>sAM(false)}title="📅 Thêm lịch nghỉ hàng loạt" wide>
       <Sel label={t.selEmp}value={af.empId}onChange={e=>sAF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode} — ${e.dai||""}`}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div><label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>Tháng</label><input type="month"value={af.month||month}onChange={e=>sAF(p=>({...p,month:e.target.value}))}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box"}}/></div>
-        <Inp label="Các ngày nghỉ (phân cách bằng dấu . hoặc ,)" value={af.days||""} onChange={e=>sAF(p=>({...p,days:e.target.value}))} placeholder="VD: 3.8.15.26"/>
+        <div><label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{t.batchMonth}</label><input type="month"value={af.month||month}onChange={e=>sAF(p=>({...p,month:e.target.value}))}style={{width:"100%",padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:Fo,outline:"none",boxSizing:"border-box"}}/></div>
+        <Inp label={t.batchDays} value={af.days||""} onChange={e=>sAF(p=>({...p,days:e.target.value}))} placeholder="VD: 3.8.15.26"/>
       </div>
       <Sel label={t.lvReason}value={af.reason}onChange={e=>sAF(p=>({...p,reason:e.target.value}))}options={t.reasons}/>
       {af.days&&<div style={{padding:"10px 12px",borderRadius:8,background:Cl.bg,marginBottom:11,border:`1px solid ${Cl.bdr}`}}>
-        <div style={{fontSize:10,color:Cl.mu,marginBottom:4}}>Xem trước:</div>
+        <div style={{fontSize:10,color:Cl.mu,marginBottom:4}}>{t.batchPreview}:</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31).map(d=>{
-          const mo=af.month||month;const ds=`${mo}-${String(d).padStart(2,"0")}`;
+          const mo=af.month||month;
           return<span key={d}style={{padding:"3px 8px",borderRadius:6,background:`${Cl.no}15`,color:Cl.no,fontSize:10,fontWeight:600,border:`1px solid ${Cl.no}25`}}>{Number(d)}/{mo.split("-")[1]}</span>
         })}</div>
       </div>}
-      <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}><Btn v="ghost"onClick={()=>sAM(false)}>{t.cancel}</Btn><Btn v="success"onClick={()=>{
-        if(!af.empId)return;
-        const mo=af.month||month;
-        const dayList=(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31);
-        if(!dayList.length){alert("Nhập ít nhất 1 ngày!");return}
-        dayList.forEach(d=>{const ds=`${mo}-${String(d).padStart(2,"0")}`;onAdd({empId:af.empId,date:ds,reason:af.reason||"Nghỉ phép",addedBy:cur.id})});
-        sAM(false);
-      }}>✓ Thêm {(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)).length} ngày</Btn></div>
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}>
+        <Btn v="ghost"onClick={()=>sAM(false)}>{t.cancel}</Btn>
+        <Btn v="success"onClick={()=>{
+          if(!af.empId)return;
+          const mo=af.month||month;
+          const dayList=(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31);
+          if(!dayList.length){alert("Nhập ít nhất 1 ngày!");return}
+          dayList.forEach(d=>{const ds=`${mo}-${String(d).padStart(2,"0")}`;onAdd({empId:af.empId,date:ds,reason:af.reason||"Nghỉ phép",addedBy:cur.id})});
+          sAM(false);
+        }}>✓ {t.batchConfirm} {(af.days||"").split(/[.,\s]+/).filter(d=>d&&!isNaN(d)).length} ngày</Btn>
+      </div>
+    </Mod>
+
+    {/* Penalty Modal */}
+    <Mod open={penM}onClose={()=>sPM(false)}title={`⚠️ ${t.addPen}`}>
+      <Sel label={t.selEmp}value={pf.empId}onChange={e=>sPF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode}`}))}/>
+      <Inp label={t.penDate}type="date"value={pf.date}onChange={e=>sPF(p=>({...p,date:e.target.value}))}/>
+      <Inp label={t.penKpi}type="number"value={pf.kpi}onChange={e=>sPF(p=>({...p,kpi:Number(e.target.value)}))}/>
+      <Inp label={t.penReason}value={pf.reason}onChange={e=>sPF(p=>({...p,reason:e.target.value}))}placeholder="Nhập lý do..."/>
+      <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}>
+        <Btn v="ghost"onClick={()=>sPM(false)}>{t.cancel}</Btn>
+        <Btn v="danger"onClick={()=>{
+          if(!pf.empId||!pf.reason){alert("Chọn NV và nhập lý do!");return}
+          onAddPen({empId:pf.empId,date:pf.date,kpi:pf.kpi,reason:pf.reason,addedBy:cur.id});
+          sPM(false);
+        }}>✓ {t.confirm}</Btn>
+      </div>
+    </Mod>
+
+    {/* Day detail Modal — click on calendar day */}
+    <Mod open={!!dayM}onClose={()=>sDM(null)}title={`🏖️ ${t.dayOff} ${dayM?fmt(dayM.date):""}`}>
+      {dayM&&<div>{dayM.leaves.map((l,i)=>{const e=emps.find(x=>x.id===l.empId);if(!e)return null;return<div key={i}style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:8,background:Cl.bg,marginBottom:4,border:`1px solid ${Cl.bdr}`}}>
+        <Av name={e.name}role={e.role}size={28}/>
+        <div style={{flex:1}}><div style={{fontSize:11,fontWeight:600,color:Cl.tx}}>{e.name} <span style={{color:Cl.mu,fontSize:9}}>({e.empCode})</span></div><div style={{fontSize:9,color:Cl.mu}}>{e.dai} · {SH[e.shift]?.label[lg]||"—"} · {l.reason}</div></div>
+        <SBdg shift={e.shift}/>
+      </div>})}</div>}
     </Mod>
   </div>;
 }
 
-// --- Permissions ---
-function PermP({cur}){const t=useT();const perms=[{k:"v",l:t.pViewAll,admin:true,manager:true,leader:true,staff:false},{k:"a",l:t.pAdd,admin:true,manager:true,leader:true,staff:false},{k:"e",l:t.pEdit,admin:true,manager:true,leader:true,staff:false},{k:"d",l:t.pDel,admin:true,manager:true,leader:true,staff:false},{k:"s",l:t.pShift,admin:true,manager:true,leader:true,staff:false},{k:"lv",l:t.pLeave,admin:true,manager:true,leader:true,staff:false},{k:"vlv",l:t.pVLeave,admin:true,manager:true,leader:true,staff:true},{k:"dai",l:t.pDai,admin:true,manager:false,leader:false,staff:false},{k:"ac",l:t.pAcct,admin:true,manager:true,leader:true,staff:false},{k:"sa",l:t.pSeeA,admin:true,manager:false,leader:false,staff:false}];
-return<div><h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.permT}</h2><p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.permS}</p>
-<div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}><thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}><th style={{padding:"10px 14px",textAlign:"left",fontSize:10,color:Cl.mu}}></th>{Object.keys(ROLES).map(k=><th key={k}style={{padding:"10px 6px",textAlign:"center"}}><Bdg role={k}/></th>)}</tr></thead>
-<tbody>{perms.map(p=><tr key={p.k}style={{borderBottom:`1px solid ${Cl.bdr}06`}}><td style={{padding:"8px 14px",fontSize:11,color:Cl.tx}}>{p.l}</td>{Object.keys(ROLES).map(r=><td key={r}style={{padding:"8px 6px",textAlign:"center"}}>{p[r]?<span style={{color:Cl.ok,fontSize:14}}>✓</span>:<span style={{color:`${Cl.no}50`,fontSize:14}}>✕</span>}</td>)}</tr>)}</tbody></table></div>
-<div style={{marginTop:12,padding:"10px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`}}><div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:3}}>{t.noteL}</div><div style={{fontSize:11,color:Cl.mu}}>{t.noteIn} <Bdg role={cur.role}/>. {cur.role==="staff"?t.noteStaff:cur.role==="admin"?t.noteAdmin:t.noteManage}</div></div></div>}
+// ============ PERMISSIONS ============
+function PermP({cur}){
+  const t=useT();
+  const perms=[
+    {k:"v",l:t.pViewAll,admin:true,manager:true,leader:true,staff:false},
+    {k:"a",l:t.pAdd,admin:true,manager:true,leader:true,staff:false},
+    {k:"e",l:t.pEdit,admin:true,manager:true,leader:true,staff:false},
+    {k:"d",l:t.pDel,admin:true,manager:true,leader:true,staff:false},
+    {k:"s",l:t.pShift,admin:true,manager:true,leader:true,staff:false},
+    {k:"lv",l:t.pLeave,admin:true,manager:true,leader:true,staff:false},
+    {k:"vlv",l:t.pVLeave,admin:true,manager:true,leader:true,staff:true},
+    {k:"dai",l:t.pDai,admin:true,manager:false,leader:false,staff:false},
+    {k:"ac",l:t.pAcct,admin:true,manager:true,leader:true,staff:false},
+    {k:"sa",l:t.pSeeA,admin:true,manager:false,leader:false,staff:false}
+  ];
+  return<div className="fade-in">
+    <h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.permT}</h2>
+    <p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.permS}</p>
+    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
+        <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}><th style={{padding:"10px 14px",textAlign:"left",fontSize:10,color:Cl.mu}}></th>{Object.keys(ROLES).map(k=><th key={k}style={{padding:"10px 6px",textAlign:"center"}}><Bdg role={k}/></th>)}</tr></thead>
+        <tbody>{perms.map(p=><tr key={p.k}style={{borderBottom:`1px solid ${Cl.bdr}06`}}><td style={{padding:"8px 14px",fontSize:11,color:Cl.tx}}>{p.l}</td>{Object.keys(ROLES).map(r=><td key={r}style={{padding:"8px 6px",textAlign:"center"}}>{p[r]?<span style={{color:Cl.ok,fontSize:14}}>✓</span>:<span style={{color:`${Cl.no}50`,fontSize:14}}>✕</span>}</td>)}</tr>)}</tbody>
+      </table>
+    </div>
+    <div style={{marginTop:12,padding:"10px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`}}>
+      <div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:3}}>{t.noteL}</div>
+      <div style={{fontSize:11,color:Cl.mu}}>{t.noteIn} <Bdg role={cur.role}/>. {cur.role==="staff"?t.noteStaff:cur.role==="admin"?t.noteAdmin:t.noteManage}</div>
+    </div>
+  </div>;
+}
 
-// --- Dai Mgmt ---
-function DaiP({dais,emps,onAdd,onDel}){const t=useT();const[nd,sND]=useState("");return<div><h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.daiT}</h2><p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.daiS}</p>
-<div style={{display:"flex",gap:6,marginBottom:14}}><input placeholder={t.daiPh}value={nd}onChange={e=>sND(e.target.value.toUpperCase())}onKeyDown={e=>{if(e.key==="Enter"&&nd.trim()){onAdd(nd.trim());sND("")}}}style={{flex:1,padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:FM,outline:"none",boxSizing:"border-box",fontWeight:700}}/><Btn onClick={()=>{if(nd.trim()){onAdd(nd.trim());sND("")}}}>{t.addDai}</Btn></div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8}}>{dais.map(d=>{const c=emps.filter(e=>e.dai===d&&e.status==="active").length;return<div key={d}style={{background:Cl.card,borderRadius:12,padding:"12px 14px",border:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:14,fontWeight:800,color:"#06b6d4",fontFamily:FM}}>🎰 {d}</div><div style={{fontSize:10,color:Cl.mu,marginTop:2}}>{c} {t.daiW}</div></div>{c===0&&<Btn v="danger"sm onClick={()=>onDel(d)}>🗑</Btn>}</div>})}</div></div>}
+// ============ DAI MGMT ============
+function DaiP({dais,emps,onAdd,onDel}){
+  const t=useT();const[nd,sND]=useState("");
+  return<div className="fade-in">
+    <h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.daiT}</h2>
+    <p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.daiS}</p>
+    <div style={{display:"flex",gap:6,marginBottom:14}}>
+      <input placeholder={t.daiPh}value={nd}onChange={e=>sND(e.target.value.toUpperCase())}onKeyDown={e=>{if(e.key==="Enter"&&nd.trim()){onAdd(nd.trim());sND("")}}}style={{flex:1,padding:"8px 12px",borderRadius:8,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:12,fontFamily:FM,outline:"none",boxSizing:"border-box",fontWeight:700}}/>
+      <Btn onClick={()=>{if(nd.trim()){onAdd(nd.trim());sND("")}}}>{t.addDai}</Btn>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:8}}>
+      {dais.map(d=>{const c=emps.filter(e=>e.dai===d&&e.status==="active").length;return<div key={d}style={{background:Cl.card,borderRadius:12,padding:"12px 14px",border:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{fontSize:14,fontWeight:800,color:"#06b6d4",fontFamily:FM}}>🎰 {d}</div><div style={{fontSize:10,color:Cl.mu,marginTop:2}}>{c} {t.daiW}</div></div>
+        {c===0&&<Btn v="danger"sm onClick={()=>onDel(d)}>🗑</Btn>}
+      </div>})}
+    </div>
+  </div>;
+}
 
-// --- Account Mgmt ---
-function AcctP({accts,emps,cur,onReset}){const t=useT();const isA=cur.role==="admin";const v=accts.filter(a=>{const e=emps.find(x=>x.id===a.empId);return e&&(isA||e.role!=="admin")}).sort((a,b)=>{const ea=emps.find(x=>x.id===a.empId);const eb=emps.find(x=>x.id===b.empId);const la=(ROLES[ea?.role]||{}).lv||0;const lb=(ROLES[eb?.role]||{}).lv||0;return lb-la});
-return<div><h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.acctT}</h2><p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.acctS}</p>
-<div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}><thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>{[t.acctU,t.acctP,t.acctE,t.acctR,""].map((h,i)=><th key={i}style={{padding:"9px 12px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-<tbody>{v.map(a=>{const e=emps.find(x=>x.id===a.empId);return<tr key={a.username}style={{borderBottom:`1px solid ${Cl.bdr}06`}}><td style={{padding:"8px 12px",fontFamily:FM,fontSize:11,color:Cl.acL,fontWeight:600}}>{a.username}</td><td style={{padding:"8px 12px",fontFamily:FM,fontSize:11,color:Cl.mu}}>{"•".repeat(a.password.length)}</td><td style={{padding:"8px 12px"}}>{e&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av name={e.name}role={e.role}size={22}/><span style={{fontSize:10,color:Cl.tx}}>{e.name}</span></div>}</td><td style={{padding:"8px 12px"}}>{e&&<Bdg role={e.role}/>}</td><td style={{padding:"8px 12px"}}><Btn v="warn"sm onClick={()=>onReset(a.username)}>{t.resetP}</Btn></td></tr>})}</tbody></table></div></div>}
+// ============ ACCOUNT MGMT ============
+function AcctP({accts,emps,cur,onReset}){
+  const t=useT();const isA=cur.role==="admin";
+  const v=accts.filter(a=>{const e=emps.find(x=>x.id===a.empId);return e&&(isA||e.role!=="admin")}).sort((a,b)=>{
+    const ea=emps.find(x=>x.id===a.empId);const eb=emps.find(x=>x.id===b.empId);
+    const la=(ROLES[ea?.role]||{}).lv||0;const lb=(ROLES[eb?.role]||{}).lv||0;return lb-la;
+  });
+  return<div className="fade-in">
+    <h2 style={{margin:"0 0 4px",fontSize:18,fontWeight:800,color:Cl.tx}}>{t.acctT}</h2>
+    <p style={{margin:"0 0 14px",color:Cl.mu,fontSize:11}}>{t.acctS}</p>
+    <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
+        <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>{[t.acctU,t.acctP,t.acctE,t.acctR,""].map((h,i)=><th key={i}style={{padding:"9px 12px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+        <tbody>{v.map(a=>{const e=emps.find(x=>x.id===a.empId);return<tr key={a.username}style={{borderBottom:`1px solid ${Cl.bdr}06`}}>
+          <td style={{padding:"8px 12px",fontFamily:FM,fontSize:11,color:Cl.acL,fontWeight:600}}>{a.username}</td>
+          <td style={{padding:"8px 12px",fontFamily:FM,fontSize:11,color:Cl.mu}}>{"•".repeat(Math.min(a.password.length,12))}</td>
+          <td style={{padding:"8px 12px"}}>{e&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av name={e.name}role={e.role}size={22}/><span style={{fontSize:10,color:Cl.tx}}>{e.name}</span></div>}</td>
+          <td style={{padding:"8px 12px"}}>{e&&<Bdg role={e.role}/>}</td>
+          <td style={{padding:"8px 12px"}}><Btn v="warn"sm onClick={()=>onReset(a.username)}>{t.resetP}</Btn></td>
+        </tr>})}</tbody>
+      </table>
+    </div>
+  </div>;
+}
 
-// --- Emp Form ---
-function EmpF({emp,curRole,dais,onSave,onCancel}){const t=useT();const lg=useContext(LC);const isE=!!emp;
-const shOpts=Object.entries(SH).map(([k,v])=>({v:Number(k),l:`${v.icon} ${v.label[lg]}`}));
-const[f,sF]=useState(emp||{name:"",empCode:"",phone:"",role:"staff",dai:dais[0]||"NOHU",shift:1,status:"active",joinDate:td(),nationality:"Việt Nam",transferDate:"",username:"",acctPassword:"123456"});
-const s=(k,v)=>{
-  const nf={...f,[k]:v};
-  if(k==="role"&&v!=="staff"){nf.dai="—";nf.shift=0}
-  if(k==="role"&&v==="staff"&&nf.dai==="—"){nf.dai=dais[0]||"NOHU";if(!nf.shift)nf.shift=1}
-  sF(nf);
-};
-const rO=curRole==="admin"?Object.entries(ROLES).filter(([k])=>k!=="admin").map(([k])=>({v:k,l:`${ROLES[k].icon} ${rl(k,lg)}`})):[{v:"staff",l:`👤 ${rl("staff",lg)}`}];
-const isStaff=f.role==="staff";
-return<div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label={t.fName}value={f.name}onChange={e=>s("name",e.target.value)}/><Inp label={t.fCode}value={f.empCode}onChange={e=>s("empCode",e.target.value.toUpperCase())}style={{fontFamily:FM,fontWeight:700}}/></div>
-<div style={{display:"grid",gridTemplateColumns:isStaff?"1fr 1fr 1fr 1fr":"1fr 1fr",gap:8}}>
-<Sel label={t.fLv}value={f.role}onChange={e=>s("role",e.target.value)}options={rO}/>
-{isStaff&&<Sel label={t.fDai}value={f.dai}onChange={e=>s("dai",e.target.value)}options={dais.length?dais:["NOHU"]}/>}
-{isStaff&&<Sel label="Ca làm"value={f.shift}onChange={e=>s("shift",Number(e.target.value))}options={shOpts}/>}
-<Sel label="Quốc tịch"value={f.nationality}onChange={e=>s("nationality",e.target.value)}options={NATS}/>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-<Inp label="Ngày nhận việc *"type="date"value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/>
-<Inp label="Ngày chuyển chính"type="date"value={f.transferDate||""}onChange={e=>s("transferDate",e.target.value)}/>
-{isE&&<Sel label="Trạng thái"value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:"✅ Đang làm"},{v:"inactive",l:"⏸ Tạm nghỉ"}]}/>}
-</div>
-{isE&&<Inp label="SĐT"value={f.phone||""}onChange={e=>s("phone",e.target.value)}/>}
-{!isE&&<div style={{padding:"12px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:11}}><div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:6}}>🔑 Tài khoản đăng nhập</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><Inp label="Username"value={f.username||""}onChange={e=>s("username",e.target.value)}placeholder="VD: JAX"style={{fontFamily:FM}}/><Inp label="Mật khẩu"value={f.acctPassword}onChange={e=>s("acctPassword",e.target.value)}placeholder="VD: 123"style={{fontFamily:FM}}/></div></div>}
-<div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}><Btn v="ghost"onClick={onCancel}>{t.cancel}</Btn><Btn v="success"onClick={()=>{if(f.name&&f.empCode&&(isStaff?f.dai:true))onSave({...f,dai:isStaff?f.dai:"—",shift:isStaff?f.shift:0})}}>{isE?t.save:t.create}</Btn></div>
-</div>}
+// ============ EMPLOYEE FORM ============
+function EmpF({emp,curRole,dais,onSave,onCancel}){
+  const t=useT();const lg=useContext(LC);const isE=!!emp;
+  const shOpts=Object.entries(SH).map(([k,v])=>({v:Number(k),l:`${v.icon} ${v.label[lg]}`}));
+  const[f,sF]=useState(emp||{name:"",empCode:"",phone:"",role:"staff",dai:dais[0]||"NOHU",shift:1,status:"active",joinDate:td(),nationality:"Việt Nam",transferDate:"",username:"",acctPassword:"123456"});
+
+  const s=(k,v)=>{
+    const nf={...f,[k]:v};
+    if(k==="role"&&v!=="staff"){nf.dai="—";nf.shift=0}
+    if(k==="role"&&v==="staff"&&nf.dai==="—"){nf.dai=dais[0]||"NOHU";if(!nf.shift)nf.shift=1}
+    sF(nf);
+  };
+
+  const rO=curRole==="admin"?Object.entries(ROLES).filter(([k])=>k!=="admin").map(([k])=>({v:k,l:`${ROLES[k].icon} ${rl(k,lg)}`})):[{v:"staff",l:`👤 ${rl("staff",lg)}`}];
+  const isStaff=f.role==="staff";
+
+  return<div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      <Inp label={t.fName}value={f.name}onChange={e=>s("name",e.target.value)}/>
+      <Inp label={t.fCode}value={f.empCode}onChange={e=>s("empCode",e.target.value.toUpperCase())}style={{fontFamily:FM,fontWeight:700}}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:isStaff?"1fr 1fr 1fr 1fr":"1fr 1fr",gap:8}}>
+      <Sel label={t.fLv}value={f.role}onChange={e=>s("role",e.target.value)}options={rO}/>
+      {isStaff&&<Sel label={t.fDai}value={f.dai}onChange={e=>s("dai",e.target.value)}options={dais.length?dais:["NOHU"]}/>}
+      {isStaff&&<Sel label={t.fShift}value={f.shift}onChange={e=>s("shift",Number(e.target.value))}options={shOpts}/>}
+      <Sel label={t.fNat}value={f.nationality}onChange={e=>s("nationality",e.target.value)}options={NATS}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:isE?"1fr 1fr 1fr":"1fr 1fr",gap:8}}>
+      <Inp label={t.fJoin}type="date"value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/>
+      <Inp label={t.fTrans}type="date"value={f.transferDate||""}onChange={e=>s("transferDate",e.target.value)}/>
+      {isE&&<Sel label={t.fSt}value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:t.stA},{v:"inactive",l:t.stI}]}/>}
+    </div>
+    {!isE&&<div style={{padding:"12px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:11}}>
+      <div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:6}}>🔑 Tài khoản đăng nhập</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <Inp label={t.fUser}value={f.username||""}onChange={e=>s("username",e.target.value)}placeholder="VD: JAX"style={{fontFamily:FM}}/>
+        <Inp label={t.fPass}value={f.acctPassword||"123456"}onChange={e=>s("acctPassword",e.target.value)}placeholder="VD: 123"style={{fontFamily:FM}}/>
+      </div>
+    </div>}
+    <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}>
+      <Btn v="ghost"onClick={onCancel}>{t.cancel}</Btn>
+      <Btn v="success"onClick={()=>{
+        if(!f.name||!f.empCode){alert("Nhập tên và mã NV!");return}
+        if(isStaff&&!f.dai){alert("Chọn đài!");return}
+        if(!isE&&!f.username){alert("Nhập username!");return}
+        onSave({...f,dai:isStaff?f.dai:"—",shift:isStaff?f.shift:0});
+      }}>{isE?t.save:t.create}</Btn>
+    </div>
+  </div>;
+}
 
 // ============ MAIN APP ============
 function App(){
-  const[lang,setLang]=useState("vi");
+  const[lang,setLang]=useState(()=>{try{return localStorage.getItem("nohu_lang")||"vi"}catch{return"vi"}});
+  const setLangPersist=(l)=>{setLang(l);try{localStorage.setItem("nohu_lang",l)}catch{}};
   const[loading,sL]=useState(true);const[err,sErr]=useState("");
-  // Khôi phục phiên đăng nhập từ localStorage
   const[user,sUser]=useState(()=>{try{const s=localStorage.getItem("nohu_session");return s?JSON.parse(s):null}catch{return null}});
   const setUser=(u)=>{sUser(u);try{if(u)localStorage.setItem("nohu_session",JSON.stringify(u));else localStorage.removeItem("nohu_session")}catch{}};
   const[emps,sEmps]=useState([]);const[accts,sAccts]=useState([]);
   const[leaves,sLvs]=useState([]);const[dais,sDais]=useState([]);const[pens,sPens]=useState([]);
   const[page,sPage]=useState("dashboard");
   const[editM,sEM]=useState(null);const[addM,sAM]=useState(false);const[col,sCol]=useState(false);
-
   const[swapped,setSw]=useState(false);
-  const reload=async()=>{
+
+  const reload=useCallback(async()=>{
     try{
       const didSwap=await DB.autoSwapShifts();if(didSwap)setSw(true);
       const[eR,aR,lR,dR,pR]=await Promise.all([DB.loadEmps(),DB.loadAccts(),DB.loadLeaves(),DB.loadDais(),DB.loadPenalties()]);
-      sEmps((eR||[]).map(DB.toEmp));sAccts((aR||[]).map(DB.toAcct));sLvs((lR||[]).map(DB.toLv));sDais(dR&&dR.length?dR:["NOHU","GO99","TT88","MMOO","789P","UY88"]);sPens((pR||[]).map(DB.toPen));sL(false);
+      sEmps((eR||[]).map(DB.toEmp));sAccts((aR||[]).map(DB.toAcct));sLvs((lR||[]).map(DB.toLv));
+      sDais(dR&&dR.length?dR:DEFAULT_DAIS);sPens((pR||[]).map(DB.toPen));sL(false);
     }catch(e){sErr("Không kết nối được Supabase. Kiểm tra lại URL và Key!");sL(false);console.error(e)}
-  };
-  useEffect(()=>{reload()},[]);
+  },[]);
+
+  useEffect(()=>{reload()},[reload]);
 
   const cur=user?emps.find(e=>e.id===user.empId):null;
   const isA=cur?.role==="admin";const t=L[lang];
 
   const saveEmp=async emp=>{
     try{
-    if(emp.id){await DB.upsertEmp(emp)}
-    else{const nid=await DB.nextEmpId();const ne={...emp,id:nid};await DB.upsertEmp(ne);await DB.addAcct({username:emp.username||emp.empCode.toLowerCase(),password:emp.acctPassword||"123456",empId:nid})}
-    sEM(null);sAM(false);await reload();
+      if(emp.id){await DB.upsertEmp(emp)}
+      else{const nid=await DB.nextEmpId();const ne={...emp,id:nid};await DB.upsertEmp(ne);await DB.addAcct({username:emp.username||emp.empCode.toLowerCase(),password:emp.acctPassword||"123456",empId:nid})}
+      sEM(null);sAM(false);await reload();
     }catch(e){console.error(e);alert("Lỗi: "+e.message)}
   };
   const delEmp=async emp=>{if(!confirm(t.delCfm))return;await DB.deleteAcct(emp.id);await DB.deleteEmp(emp.id);await reload()};
-  const togSh=async emp=>{await DB.upsertEmp({...emp,shift:emp.shift===1?2:1});await reload()};
   const addLv=async lv=>{if(leaves.find(l=>l.empId===lv.empId&&l.date===lv.date)){alert(t.alrOff);return}await DB.addLeave(lv);await reload()};
   const delLv=async lv=>{await DB.deleteLeave(lv.empId,lv.date);await reload()};
   const addPen=async p=>{try{await DB.addPenalty(p);await reload()}catch(e){alert("Lỗi: "+e.message)}};
@@ -394,40 +730,97 @@ function App(){
   const delDai=async n=>{await DB.deleteDai(n);await reload()};
   const resetPw=async u=>{await DB.resetPw(u);alert(t.resetD);await reload()};
 
-  if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:Cl.bg,fontFamily:Fo,color:Cl.mu}}><div style={{textAlign:"center"}}><div style={{fontSize:32,fontWeight:900,color:"#f59e0b",fontFamily:FM,marginBottom:8}}>N</div><div>{t.loading}</div></div></div>;
-
-  if(err)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:Cl.bg,fontFamily:Fo,padding:20}}><div style={{background:Cl.sf,borderRadius:16,padding:32,maxWidth:500,textAlign:"center",border:`1px solid ${Cl.no}30`}}><div style={{fontSize:40,marginBottom:12}}>⚠️</div><div style={{color:Cl.no,fontSize:14,fontWeight:700,marginBottom:8}}>Lỗi kết nối</div><div style={{color:Cl.mu,fontSize:12,lineHeight:1.6,marginBottom:16}}>{err}</div><div style={{color:Cl.mu,fontSize:11,background:Cl.bg,padding:12,borderRadius:8,fontFamily:FM,textAlign:"left"}}>1. Mở file index.html<br/>2. Thay YOUR_SUPABASE_URL<br/>3. Thay YOUR_SUPABASE_ANON_KEY</div></div></div>;
-
-  if(!user)return<LC.Provider value={lang}><div style={{position:"relative"}}><div style={{position:"absolute",top:16,right:16,zIndex:10}}><LangSw lang={lang}setLang={setLang}/></div><LoginP onLogin={a=>{setUser(a);sPage("dashboard")}}accts={accts}emps={emps}/></div></LC.Provider>;
-
-  const menu=[{key:"dashboard",icon:"📊",label:t.dashboard},{key:"employees",icon:"👥",label:t.employees},{key:"leaves",icon:"🏖️",label:t.leaves},...(canMg(cur.role)?[{key:"accounts",icon:"🔑",label:t.acctMg}]:[]),...(isA?[{key:"perms",icon:"🔐",label:t.perms},{key:"dais",icon:"🎰",label:t.daiMg}]:[])];
-
-  return<LC.Provider value={lang}><div style={{display:"flex",height:"100vh",background:Cl.bg,fontFamily:Fo,color:Cl.tx}}>
-    <div style={{width:col?56:190,transition:"width .25s",background:Cl.sf,borderRight:`1px solid ${Cl.bdr}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
-      <div style={{padding:col?"14px 8px":"14px 14px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",alignItems:"center",gap:8}}><div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#f59e0b,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:"#fff",fontFamily:FM}}>N</div>{!col&&<div><div style={{fontSize:13,fontWeight:900,color:Cl.tx}}>NOHU</div><div style={{fontSize:8,color:Cl.mu,fontWeight:600}}>{t.appSub}</div></div>}</div>
-      <div style={{padding:"8px 5px",flex:1}}>{menu.map(item=>{const act=page===item.key;return<div key={item.key}onClick={()=>sPage(item.key)}style={{display:"flex",alignItems:"center",gap:7,padding:col?"8px 0":"8px 10px",justifyContent:col?"center":"flex-start",borderRadius:7,marginBottom:1,cursor:"pointer",background:act?`${Cl.ac}15`:"transparent",color:act?Cl.acL:Cl.mu,fontWeight:act?600:500,fontSize:11}}onMouseEnter={e=>{if(!act)e.currentTarget.style.background=Cl.card}}onMouseLeave={e=>{if(!act)e.currentTarget.style.background="transparent"}}><span style={{fontSize:13}}>{item.icon}</span>{!col&&item.label}</div>})}</div>
-      <div style={{padding:col?"10px 5px":"10px 10px",borderTop:`1px solid ${Cl.bdr}`}}><div style={{display:"flex",alignItems:"center",gap:6,justifyContent:col?"center":"flex-start"}}><Av name={cur.name}role={cur.role}size={26}/>{!col&&<div style={{flex:1,minWidth:0}}><div style={{fontSize:10,fontWeight:600,color:Cl.tx,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cur.name}</div><Bdg role={cur.role}/></div>}</div>
-      <button onClick={()=>setUser(null)}style={{marginTop:6,width:"100%",padding:"5px 0",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:"transparent",color:Cl.no,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:Fo}}>{col?"🚪":t.logout}</button></div>
-      <div style={{padding:4,borderTop:`1px solid ${Cl.bdr}`,textAlign:"center"}}><button onClick={()=>sCol(!col)}style={{background:"none",border:"none",color:Cl.mu,cursor:"pointer",fontSize:11}}>{col?"▶":"◀"}</button></div>
+  // Loading screen
+  if(loading)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:Cl.bg,fontFamily:Fo,color:Cl.mu}}>
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:32,fontWeight:900,color:"#f59e0b",fontFamily:FM,marginBottom:8,animation:"pulse 1.5s infinite"}}>N</div>
+      <div>{t.loading}</div>
     </div>
-    <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column"}}>
-      <div style={{padding:"10px 20px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center",background:Cl.sf,flexShrink:0}}>
-        <div style={{fontSize:10,color:Cl.mu}}>🏠 / <span style={{color:Cl.tx,fontWeight:600}}>{menu.find(m=>m.key===page)?.label}</span></div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}><LangSw lang={lang}setLang={setLang}/><DBdg dai={cur.dai}/><SBdg shift={cur.shift}/><span style={{fontSize:10,color:Cl.mu}}>{fmt(td())}</span></div>
-      </div>
-      <div style={{padding:20,flex:1,overflow:"auto"}}>
-        {page==="dashboard"&&<DashP emps={emps}leaves={leaves}cur={cur}dais={dais}/>}
-        {page==="employees"&&<EmpP emps={emps}cur={cur}dais={dais}onEdit={e=>sEM(e)}onAdd={()=>sAM(true)}onShift={togSh}onDel={delEmp}/>}
-        {page==="leaves"&&<LeaveP emps={emps}leaves={leaves}pens={pens}cur={cur}onAdd={addLv}onDel={delLv}onAddPen={addPen}onDelPen={delPen}/>}
-        {page==="perms"&&<PermP cur={cur}/>}
-        {page==="accounts"&&canMg(cur.role)&&<AcctP accts={accts}emps={emps}cur={cur}onReset={resetPw}/>}
-        {page==="dais"&&isA&&<DaiP dais={dais}emps={emps}onAdd={addDai}onDel={delDai}/>}
-      </div>
+  </div>;
+
+  // Error screen
+  if(err)return<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:Cl.bg,fontFamily:Fo,padding:20}}>
+    <div style={{background:Cl.sf,borderRadius:16,padding:32,maxWidth:500,textAlign:"center",border:`1px solid ${Cl.no}30`}}>
+      <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+      <div style={{color:Cl.no,fontSize:14,fontWeight:700,marginBottom:8}}>Lỗi kết nối</div>
+      <div style={{color:Cl.mu,fontSize:12,lineHeight:1.6,marginBottom:16}}>{err}</div>
+      <div style={{color:Cl.mu,fontSize:11,background:Cl.bg,padding:12,borderRadius:8,fontFamily:FM,textAlign:"left"}}>1. Mở file index.html<br/>2. Thay YOUR_SUPABASE_URL<br/>3. Thay YOUR_SUPABASE_ANON_KEY</div>
     </div>
-    <Mod open={!!editM||addM}onClose={()=>{sEM(null);sAM(false)}}title={editM?t.editEmp:t.addEmpT}wide>
-      <EmpF emp={editM}curRole={cur.role}dais={dais}onSave={saveEmp}onCancel={()=>{sEM(null);sAM(false)}}/>
-    </Mod>
+  </div>;
+
+  // Login
+  if(!user)return<LC.Provider value={lang}><div style={{position:"relative"}}>
+    <div style={{position:"absolute",top:16,right:16,zIndex:10}}><LangSw lang={lang}setLang={setLangPersist}/></div>
+    <LoginP onLogin={a=>{setUser(a);sPage("dashboard")}}accts={accts}emps={emps}/>
   </div></LC.Provider>;
+
+  // If cur not found (account mismatch after data change)
+  if(!cur){setUser(null);return null}
+
+  const menu=[
+    {key:"dashboard",icon:"📊",label:t.dashboard},
+    {key:"employees",icon:"👥",label:t.employees},
+    {key:"leaves",icon:"🏖️",label:t.leaves},
+    ...(canMg(cur.role)?[{key:"accounts",icon:"🔑",label:t.acctMg}]:[]),
+    ...(isA?[{key:"perms",icon:"🔐",label:t.perms},{key:"dais",icon:"🎰",label:t.daiMg}]:[])
+  ];
+
+  return<LC.Provider value={lang}>
+    <div style={{display:"flex",height:"100vh",background:Cl.bg,fontFamily:Fo,color:Cl.tx}}>
+      {/* Sidebar */}
+      <div style={{width:col?56:190,transition:"width .25s",background:Cl.sf,borderRight:`1px solid ${Cl.bdr}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden"}}>
+        <div style={{padding:col?"14px 8px":"14px 14px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#f59e0b,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:900,color:"#fff",fontFamily:FM}}>N</div>
+          {!col&&<div><div style={{fontSize:13,fontWeight:900,color:Cl.tx}}>NOHU</div><div style={{fontSize:8,color:Cl.mu,fontWeight:600}}>{t.appSub}</div></div>}
+        </div>
+        <div style={{padding:"8px 5px",flex:1}}>
+          {menu.map(item=>{const act=page===item.key;return<div key={item.key}onClick={()=>sPage(item.key)}style={{display:"flex",alignItems:"center",gap:7,padding:col?"8px 0":"8px 10px",justifyContent:col?"center":"flex-start",borderRadius:7,marginBottom:1,cursor:"pointer",background:act?`${Cl.ac}15`:"transparent",color:act?Cl.acL:Cl.mu,fontWeight:act?600:500,fontSize:11,transition:"all .15s"}}onMouseEnter={e=>{if(!act)e.currentTarget.style.background=Cl.card}}onMouseLeave={e=>{if(!act)e.currentTarget.style.background="transparent"}}><span style={{fontSize:13}}>{item.icon}</span>{!col&&item.label}</div>})}
+        </div>
+        <div style={{padding:col?"10px 5px":"10px 10px",borderTop:`1px solid ${Cl.bdr}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:col?"center":"flex-start"}}>
+            <Av name={cur.name}role={cur.role}size={26}/>
+            {!col&&<div style={{flex:1,minWidth:0}}><div style={{fontSize:10,fontWeight:600,color:Cl.tx,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{cur.name}</div><Bdg role={cur.role}/></div>}
+          </div>
+          <button onClick={()=>{setUser(null);sPage("dashboard")}}style={{marginTop:6,width:"100%",padding:"5px 0",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:"transparent",color:Cl.no,fontSize:10,fontWeight:600,cursor:"pointer",fontFamily:Fo,transition:"all .15s"}}onMouseEnter={e=>e.currentTarget.style.background=`${Cl.no}10`}onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{col?"🚪":t.logout}</button>
+        </div>
+        <div style={{padding:4,borderTop:`1px solid ${Cl.bdr}`,textAlign:"center"}}><button onClick={()=>sCol(!col)}style={{background:"none",border:"none",color:Cl.mu,cursor:"pointer",fontSize:11}}>{col?"▶":"◀"}</button></div>
+      </div>
+
+      {/* Main Content */}
+      <div style={{flex:1,overflow:"auto",display:"flex",flexDirection:"column"}}>
+        {/* Top bar */}
+        <div style={{padding:"10px 20px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center",background:Cl.sf,flexShrink:0}}>
+          <div style={{fontSize:10,color:Cl.mu}}>🏠 / <span style={{color:Cl.tx,fontWeight:600}}>{menu.find(m=>m.key===page)?.label}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <LangSw lang={lang}setLang={setLangPersist}/>
+            <DBdg dai={cur.dai}/><SBdg shift={cur.shift}/>
+            <span style={{fontSize:10,color:Cl.mu}}>{fmt(td())}</span>
+          </div>
+        </div>
+
+        {/* Swap notification */}
+        {swapped&&<div style={{margin:"12px 20px 0",padding:"10px 14px",borderRadius:8,background:`${Cl.wr}12`,border:`1px solid ${Cl.wr}30`,color:Cl.wr,fontSize:11,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span>{t.shiftSwapped}</span>
+          <button onClick={()=>setSw(false)}style={{background:"none",border:"none",color:Cl.wr,cursor:"pointer",fontSize:14}}>✕</button>
+        </div>}
+
+        {/* Page content */}
+        <div style={{padding:20,flex:1,overflow:"auto"}}>
+          {page==="dashboard"&&<DashP emps={emps}leaves={leaves}cur={cur}dais={dais}/>}
+          {page==="employees"&&<EmpP emps={emps}cur={cur}dais={dais}onEdit={e=>sEM(e)}onAdd={()=>sAM(true)}onDel={delEmp}/>}
+          {page==="leaves"&&<LeaveP emps={emps}leaves={leaves}pens={pens}cur={cur}onAdd={addLv}onDel={delLv}onAddPen={addPen}onDelPen={delPen}/>}
+          {page==="perms"&&<PermP cur={cur}/>}
+          {page==="accounts"&&canMg(cur.role)&&<AcctP accts={accts}emps={emps}cur={cur}onReset={resetPw}/>}
+          {page==="dais"&&isA&&<DaiP dais={dais}emps={emps}onAdd={addDai}onDel={delDai}/>}
+        </div>
+      </div>
+
+      {/* Employee Form Modal */}
+      <Mod open={!!editM||addM}onClose={()=>{sEM(null);sAM(false)}}title={editM?t.editEmp:t.addEmpT}wide>
+        <EmpF emp={editM}curRole={cur.role}dais={dais}onSave={saveEmp}onCancel={()=>{sEM(null);sAM(false)}}/>
+      </Mod>
+    </div>
+  </LC.Provider>;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);

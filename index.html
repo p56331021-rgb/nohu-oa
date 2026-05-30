@@ -740,93 +740,127 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
   const isStaff=cur.role==="staff";
   const[month,sM]=useState(td().slice(0,7));
   const[y,m]=month.split("-").map(Number);
-  const dim=new Date(y,m,0).getDate(); // days in month
+  const dim=new Date(y,m,0).getDate();
   const[cfg,sCfg]=useState(salCfg||{});
   const[saving,sSaving]=useState(false);
+  const[showDetail,sShowDetail]=useState(null);
   useEffect(()=>{sCfg(salCfg||{})},[salCfg]);
 
-  // Config fields per nationality
-  // basePre: lương chưa chuyển chính, basePost: lương đã chuyển chính
-  // perDay: trừ/ngày nghỉ, perKpi: trừ/điểm KPI
-  // kpiBonus: thưởng KPI (sau CC), attendBonus: thưởng chuyên cần (sau CC)
+  // ===== MONTHLY SETTINGS (tỷ giá, ngày lễ, % thưởng lễ) =====
+  const mKey=`monthly_${month}`;
+  const msCfg=cfg._monthly||{};
+  const ms=msCfg[month]||{rate:26880,holidays:0,holidayPct:100};
+  const setMs=(field,val)=>{
+    const n={...cfg};if(!n._monthly)n._monthly={};
+    if(!n._monthly[month])n._monthly[month]={rate:26880,holidays:0,holidayPct:100};
+    n._monthly[month][field]=Number(val)||0;sCfg(n);
+  };
+
+  // ===== NATIONALITY CONFIG =====
+  // basePre, basePost: lương chưa/đã CC
+  // perKpi: trừ/điểm KPI, kpiBonus: thưởng KPI (sau CC), attendBonus: thưởng CC (sau CC)
   const cfgFields=[
-    {k:"basePre",l:t.salBasePre,w:120},
-    {k:"basePost",l:t.salBasePost,w:120},
-    {k:"perDay",l:t.salPerDay,w:100},
-    {k:"perKpi",l:t.salPerKpi,w:100},
-    {k:"kpiBonus",l:t.salKpiBonus,w:100},
-    {k:"attendBonus",l:t.salAttend,w:100}
+    {k:"basePre",l:"Lương thử việc",w:110},
+    {k:"basePost",l:"Lương sau CC",w:110},
+    {k:"increment",l:"Tăng/3 tháng",w:90},
+    {k:"perKpi",l:"Trừ/KPI",w:80},
+    {k:"kpiBonus",l:"Thưởng KPI",w:85},
+    {k:"attendBonus",l:"Thưởng CC",w:85}
   ];
   const handleCfg=(nat,field,val)=>{const n={...cfg};if(!n[nat])n[nat]={};n[nat][field]=Number(val)||0;sCfg(n)};
   const saveCfg=async()=>{sSaving(true);await onSaveCfg(cfg);sSaving(false);alert(t.salSaved)};
   const fmtN=(n)=>{if(!n&&n!==0)return"0";return Math.round(Number(n)).toLocaleString("vi-VN")};
+  const fmtU=(n)=>{const r=ms.rate||26880;if(!r||!n)return"0";return(Math.round(n/r)).toLocaleString("vi-VN")};
 
-  // Calc salary for one employee in selected month
+  // ===== SALARY CALCULATION =====
+  // Auto salary increase: every 3 months after CC, base increases by increment
+  // Month of CC = month 0, then month 3 = +1 increment, month 6 = +2, etc.
   const calcSalary=(emp)=>{
     const nat=emp.nationality||"Khác";
     const c=cfg[nat];
     if(!c||(!c.basePre&&!c.basePost))return{configured:false};
 
-    const basePre=c.basePre||0;const basePost=c.basePost||0;
+    const basePre=c.basePre||0;const basePostOrig=c.basePost||0;
+    const increment=c.increment||0;
     const transferDate=emp.transferDate||"";
-    // Determine pre/post days in this month
-    let daysPre=dim, daysPost=0;
-    let isConfirmed=false;
+    let daysPre=dim, daysPost=0, isConfirmed=false;
+    let monthsSinceCC=-1, quarters=0, seniorityRaise=0, actualBasePost=basePostOrig;
 
     if(transferDate){
       const td2=new Date(transferDate);
       const monthStart=new Date(y,m-1,1);
       const monthEnd=new Date(y,m,0);
+      monthsSinceCC=(y-td2.getFullYear())*12+((m-1)-td2.getMonth());
+
       if(td2<=monthStart){
-        // Already confirmed before this month
         daysPre=0;daysPost=dim;isConfirmed=true;
+        quarters=Math.max(0,Math.floor(monthsSinceCC/3));
+        seniorityRaise=quarters*increment;
+        actualBasePost=basePostOrig+seniorityRaise;
       }else if(td2>monthEnd){
-        // Not yet confirmed this month
-        daysPre=dim;daysPost=0;isConfirmed=false;
+        daysPre=dim;daysPost=0;isConfirmed=false;monthsSinceCC=-1;
       }else{
-        // Confirmed mid-month
-        const confirmDay=td2.getDate();
-        daysPre=confirmDay-1;daysPost=dim-daysPre;isConfirmed=true;
+        const cd=td2.getDate();daysPre=cd-1;daysPost=dim-daysPre;isConfirmed=true;
+        monthsSinceCC=0;quarters=0;seniorityRaise=0;actualBasePost=basePostOrig;
       }
     }
 
-    // Pro-rata base salary
-    const baseCalc=Math.round((daysPre/dim)*basePre+(daysPost/dim)*basePost);
+    const baseCalc=Math.round((daysPre/dim)*basePre+(daysPost/dim)*actualBasePost);
+    const dailyRate=Math.round(baseCalc/dim);
 
-    // Leave days & KPI this month
-    const leaveDays=leaves.filter(l=>l.empId===emp.id&&l.date.startsWith(month)).length;
+    const empLeaves=leaves.filter(l=>l.empId===emp.id&&l.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date));
+    const totalOff=empLeaves.length;
+    const ALLOWED_OFF=4;
+    const unpaidLeaves=empLeaves.filter(l=>l.reason==="Nghỉ không lương");
+
+    let consecutivePenaltyDays=0;
+    const sortedDates=empLeaves.map(l=>{const p=l.date.split("-");return new Date(+p[0],+p[1]-1,+p[2])});
+    for(let i=1;i<sortedDates.length;i++){
+      const diff=(sortedDates[i]-sortedDates[i-1])/(1000*60*60*24);
+      if(diff===1)consecutivePenaltyDays+=3;
+    }
+
+    const unpaidPenaltyDays=unpaidLeaves.length*2;
+    const unusedOffDays=Math.max(0,ALLOWED_OFF-totalOff);
+    const noOffBonus=Math.round(unusedOffDays*dailyRate*1.5);
+    const leaveDeduct=Math.round((unpaidPenaltyDays+consecutivePenaltyDays)*dailyRate);
+
     const kpiTotal=pens.filter(p=>p.empId===emp.id&&p.date&&p.date.startsWith(month)).reduce((s,p)=>s+(p.kpi||0),0);
-
-    // Deductions
-    const deductDay=leaveDays*(c.perDay||0);
     const deductKpi=kpiTotal*(c.perKpi||0);
 
-    // Bonuses (only if has post-confirmation days)
     const kpiBonus=daysPost>0?Math.round((daysPost/dim)*(c.kpiBonus||0)):0;
     const attendBonus=daysPost>0?Math.round((daysPost/dim)*(c.attendBonus||0)):0;
+    const holidayBonus=Math.round((ms.holidays||0)*dailyRate*(ms.holidayPct||0)/100);
 
-    const net=Math.max(0,baseCalc+kpiBonus+attendBonus-deductDay-deductKpi);
-    return{configured:true,basePre,basePost,daysPre,daysPost,baseCalc,leaveDays,kpiTotal,deductDay,deductKpi,kpiBonus,attendBonus,net,isConfirmed};
+    const net=Math.max(0,baseCalc+noOffBonus+kpiBonus+attendBonus+holidayBonus-leaveDeduct-deductKpi);
+    const usdt=ms.rate?Math.round(net/ms.rate):0;
+
+    return{configured:true,basePre,basePost:actualBasePost,origBasePost:basePostOrig,daysPre,daysPost,baseCalc,dailyRate,isConfirmed,
+      monthsSinceCC,quarters,seniorityRaise,increment,
+      totalOff,unusedOffDays,noOffBonus,
+      unpaidCount:unpaidLeaves.length,unpaidPenaltyDays,consecutivePenaltyDays,leaveDeduct,
+      kpiTotal,deductKpi,kpiBonus,attendBonus,holidayBonus,
+      net,usdt,empLeaves};
+  };
   };
 
-  // Staff list
   const staffList=isStaff?emps.filter(e=>e.id===cur.id):emps.filter(e=>e.role==="staff"&&(isA||e.role!=="admin")&&e.status==="active");
 
-  // Export payroll
+  // Export
   const exportPayroll=()=>{
     const rows=staffList.map(e=>{const s=calcSalary(e);if(!s.configured)return null;return{
-      "Mã NV":e.empCode,"Tên":e.name,"Đài":e.dai,"Quốc tịch":e.nationality||"Khác",
-      "Trạng thái CC":s.isConfirmed?"Đã CC":"Chưa CC",
-      "Ngày chưa CC":s.daysPre,"Ngày đã CC":s.daysPost,
-      "Lương CB tính":s.baseCalc,
-      "Thưởng KPI":s.kpiBonus,"Thưởng chuyên cần":s.attendBonus,
-      "Ngày nghỉ":s.leaveDays,"Trừ nghỉ":s.deductDay,
+      "Mã NV":e.empCode,"Tên":e.name,"Đài":e.dai,"Quốc tịch":e.nationality||"",
+      "CC":s.isConfirmed?"Đã CC":"Chưa CC","Thâm niên CC":s.monthsSinceCC>=0?`${s.monthsSinceCC} tháng`:"—",
+      "Tăng lương":s.seniorityRaise,"Lương CB hiện tại":s.basePost,
+      "Lương CB tính":s.baseCalc,"Lương/ngày":s.dailyRate,
+      "Ngày nghỉ":s.totalOff,"Không nghỉ x1.5":s.noOffBonus,
+      "Trừ nghỉ":s.leaveDeduct,
       "KPI trừ":s.kpiTotal,"Trừ KPI":s.deductKpi,
-      "Thực nhận":s.net
+      "Thưởng KPI":s.kpiBonus,"Thưởng CC":s.attendBonus,"Thưởng lễ":s.holidayBonus,
+      "Thực nhận (VNĐ)":s.net,"USDT":s.usdt
     }}).filter(Boolean);
     const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,"Bảng lương");
-    XLSX.writeFile(wb,`NOHU_Luong_${month}.xlsx`);
+    XLSX.utils.book_append_sheet(wb,ws,"Bảng lương");XLSX.writeFile(wb,`NOHU_Luong_${month}.xlsx`);
   };
 
   return<div className="fade-in">
@@ -838,88 +872,146 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
       </div>
     </div>
 
-    {/* CSKH personal salary card */}
-    {isStaff&&staffList.length>0&&(()=>{const me=staffList[0];const s=calcSalary(me);if(!s.configured)return<div style={{padding:16,background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,color:Cl.wr,fontSize:12,marginBottom:14}}>{t.salNoConfig}</div>;
+    {/* Monthly settings bar */}
+    {isA&&<div style={{display:"flex",gap:12,marginBottom:14,padding:"12px 16px",background:Cl.card,borderRadius:10,border:`1px solid ${Cl.bdr}`,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{fontSize:10,color:Cl.mu,fontWeight:700}}>⚙️ Tháng {m}/{y}</div>
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <label style={{fontSize:10,color:Cl.mu}}>Tỷ giá (VNĐ/USDT):</label>
+        <input type="number"value={ms.rate||""}onChange={e=>setMs("rate",e.target.value)}style={{width:90,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:"#f59e0b",fontSize:11,fontFamily:FM,outline:"none",textAlign:"right",fontWeight:700}}/>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <label style={{fontSize:10,color:Cl.mu}}>Số ngày lễ:</label>
+        <input type="number"value={ms.holidays||""}onChange={e=>setMs("holidays",e.target.value)}style={{width:50,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <label style={{fontSize:10,color:Cl.mu}}>Thưởng lễ (%):</label>
+        <input type="number"value={ms.holidayPct||""}onChange={e=>setMs("holidayPct",e.target.value)}style={{width:55,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/>
+      </div>
+      <Btn v="success" sm onClick={saveCfg} disabled={saving}>{saving?"...":"💾 Lưu"}</Btn>
+    </div>}
+
+    {/* CSKH personal card */}
+    {isStaff&&staffList.length>0&&(()=>{const me=staffList[0];const s=calcSalary(me);
+    if(!s.configured)return<div style={{padding:16,background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,color:Cl.wr,fontSize:12,marginBottom:14}}>{t.salNoConfig}</div>;
     return<div style={{background:`linear-gradient(135deg,${Cl.ac}12,${Cl.card})`,borderRadius:14,padding:20,border:`1px solid ${Cl.ac}25`,marginBottom:16}}>
       <div style={{fontSize:13,fontWeight:700,color:Cl.tx,marginBottom:14}}>{t.salMySalary} — {t.mo} {m}/{y}</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
         <div style={{background:Cl.bg,borderRadius:10,padding:12}}>
           <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>{t.salBaseCalc}</div>
-          <div style={{fontSize:18,fontWeight:800,color:Cl.tx,fontFamily:FM}}>{fmtN(s.baseCalc)}</div>
-          <div style={{fontSize:9,color:Cl.mu,marginTop:4}}>{s.daysPre>0&&s.daysPost>0?`${s.daysPre}d chưa CC + ${s.daysPost}d đã CC`:s.daysPost>0?t.salPost:t.salPre}</div>
+          <div style={{fontSize:16,fontWeight:800,color:Cl.tx,fontFamily:FM}}>{fmtN(s.baseCalc)}</div>
+          <div style={{fontSize:9,color:Cl.mu,marginTop:3}}>{s.daysPre>0&&s.daysPost>0?`${s.daysPre}d chưa + ${s.daysPost}d đã CC`:s.daysPost>0?"Đã CC":"Chưa CC"}</div>
         </div>
         <div style={{background:Cl.bg,borderRadius:10,padding:12}}>
-          <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>{t.salBonuses}</div>
-          <div style={{fontSize:18,fontWeight:800,color:Cl.ok,fontFamily:FM}}>+{fmtN(s.kpiBonus+s.attendBonus)}</div>
-          <div style={{fontSize:9,color:Cl.mu,marginTop:4}}>KPI: +{fmtN(s.kpiBonus)} · CC: +{fmtN(s.attendBonus)}</div>
+          <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>Thưởng</div>
+          <div style={{fontSize:16,fontWeight:800,color:Cl.ok,fontFamily:FM}}>+{fmtN(s.noOffBonus+s.kpiBonus+s.attendBonus+s.holidayBonus)}</div>
+          <div style={{fontSize:8,color:Cl.mu,marginTop:3}}>
+            {s.unusedOffDays>0&&<span>Không nghỉ {s.unusedOffDays}d: +{fmtN(s.noOffBonus)} · </span>}
+            {s.kpiBonus>0&&<span>KPI: +{fmtN(s.kpiBonus)} · </span>}
+            {s.attendBonus>0&&<span>CC: +{fmtN(s.attendBonus)} · </span>}
+            {s.holidayBonus>0&&<span>Lễ: +{fmtN(s.holidayBonus)}</span>}
+          </div>
         </div>
         <div style={{background:Cl.bg,borderRadius:10,padding:12}}>
-          <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>{t.salDeduct}</div>
-          <div style={{fontSize:18,fontWeight:800,color:Cl.no,fontFamily:FM}}>-{fmtN(s.deductDay+s.deductKpi)}</div>
-          <div style={{fontSize:9,color:Cl.mu,marginTop:4}}>Nghỉ {s.leaveDays}d: -{fmtN(s.deductDay)} · KPI {s.kpiTotal}: -{fmtN(s.deductKpi)}</div>
+          <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>Trừ</div>
+          <div style={{fontSize:16,fontWeight:800,color:Cl.no,fontFamily:FM}}>-{fmtN(s.leaveDeduct+s.deductKpi)}</div>
+          <div style={{fontSize:8,color:Cl.mu,marginTop:3}}>
+            {s.leaveDeduct>0&&<span>Nghỉ: -{fmtN(s.leaveDeduct)} · </span>}
+            {s.deductKpi>0&&<span>KPI {s.kpiTotal}: -{fmtN(s.deductKpi)}</span>}
+          </div>
         </div>
-      </div>
-      <div style={{background:Cl.bg,borderRadius:10,padding:14,textAlign:"center"}}>
-        <div style={{fontSize:10,color:Cl.mu}}>{t.salNet}</div>
-        <div style={{fontSize:28,fontWeight:900,color:Cl.ok,fontFamily:FM}}>{fmtN(s.net)} <span style={{fontSize:12,fontWeight:500}}>{t.salCurrency}</span></div>
+        <div style={{background:Cl.bg,borderRadius:10,padding:12,textAlign:"center"}}>
+          <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>Thực nhận</div>
+          <div style={{fontSize:20,fontWeight:900,color:Cl.ok,fontFamily:FM}}>{fmtN(s.net)}</div>
+          <div style={{fontSize:10,color:"#f59e0b",fontWeight:700,marginTop:3}}>≈ {fmtU(s.net)} USDT</div>
+        </div>
       </div>
     </div>})()}
 
-    {/* Admin salary config */}
+    {/* Admin config */}
     {isA&&<div style={{background:Cl.card,borderRadius:12,padding:16,border:`1px solid ${Cl.bdr}`,marginBottom:16}}>
-      <h4 style={{margin:"0 0 12px",fontSize:12,color:Cl.tx,fontWeight:700}}>{t.salCfg}</h4>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
-          <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
-            <th style={{padding:"8px 8px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu}}>Quốc tịch</th>
-            {cfgFields.map(f=><th key={f.k}style={{padding:"8px 4px",textAlign:"right",fontSize:8,fontWeight:700,color:Cl.mu,whiteSpace:"nowrap"}}>{f.l}</th>)}
-          </tr></thead>
-          <tbody>{NATS.map(nat=>{const c=cfg[nat]||{};return<tr key={nat}style={{borderBottom:`1px solid ${Cl.bdr}06`}}>
-            <td style={{padding:"5px 8px",fontSize:11,color:Cl.tx,fontWeight:600,whiteSpace:"nowrap"}}>{nat}</td>
-            {cfgFields.map(f=><td key={f.k}style={{padding:"5px 3px"}}><input type="number"value={c[f.k]||""}onChange={e=>handleCfg(nat,f.k,e.target.value)}placeholder="0"style={{width:f.w,padding:"4px 6px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:10,fontFamily:FM,outline:"none",textAlign:"right"}}/></td>)}
-          </tr>})}</tbody>
-        </table>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <h4 style={{margin:0,fontSize:12,color:Cl.tx,fontWeight:700}}>⚙️ Cấu hình lương theo quốc tịch</h4>
+        <Btn v="success" sm onClick={saveCfg} disabled={saving}>{saving?"...":t.salSave}</Btn>
       </div>
-      <div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}><Btn v="success" onClick={saveCfg} disabled={saving}>{saving?"...":t.salSave}</Btn></div>
+      <div style={{padding:"8px 10px",borderRadius:8,background:`${Cl.wr}08`,border:`1px solid ${Cl.wr}18`,marginBottom:10,fontSize:10,color:Cl.wr,lineHeight:1.5}}>
+        📌 Quy tắc: 4 ngày nghỉ/tháng · Không nghỉ = x150% lương/ngày · NKL = trừ 2 ngày · 2 ngày liên tiếp = trừ thêm 3 ngày · Sau CC mỗi 3 tháng tự động tăng lương
+      </div>
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
+        <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
+          <th style={{padding:"7px 8px",textAlign:"left",fontSize:9,fontWeight:700,color:Cl.mu}}>Quốc tịch</th>
+          {cfgFields.map(f=><th key={f.k}style={{padding:"7px 4px",textAlign:"right",fontSize:8,fontWeight:700,color:Cl.mu,whiteSpace:"nowrap"}}>{f.l}</th>)}
+        </tr></thead>
+        <tbody>{NATS.map(nat=>{const c=cfg[nat]||{};return<tr key={nat}style={{borderBottom:`1px solid ${Cl.bdr}06`}}>
+          <td style={{padding:"4px 8px",fontSize:11,color:Cl.tx,fontWeight:600,whiteSpace:"nowrap"}}>{nat}</td>
+          {cfgFields.map(f=><td key={f.k}style={{padding:"4px 3px"}}><input type="number"value={c[f.k]||""}onChange={e=>handleCfg(nat,f.k,e.target.value)}placeholder="0"style={{width:f.w,padding:"4px 6px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:10,fontFamily:FM,outline:"none",textAlign:"right"}}/></td>)}
+        </tr>})}</tbody>
+      </table></div>
     </div>}
 
     {/* Payroll table */}
     <div style={{background:Cl.card,borderRadius:12,border:`1px solid ${Cl.bdr}`,overflow:"hidden"}}>
-      <div style={{padding:"12px 14px",borderBottom:`1px solid ${Cl.bdr}`}}>
-        <h4 style={{margin:0,fontSize:12,color:Cl.tx,fontWeight:700}}>{t.salCalc} {m}/{y} ({staffList.length} NV)</h4>
+      <div style={{padding:"12px 14px",borderBottom:`1px solid ${Cl.bdr}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <h4 style={{margin:0,fontSize:12,color:Cl.tx,fontWeight:700}}>📊 Bảng lương {m}/{y} ({staffList.length} NV)</h4>
+        {ms.rate&&<span style={{fontSize:10,color:"#f59e0b",fontFamily:FM,fontWeight:700}}>1 USDT = {fmtN(ms.rate)} ₫</span>}
       </div>
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo,fontSize:10}}>
-          <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
-            {[t.cName,t.cNat,"CC",t.salBaseCalc,t.salKpiBonus,t.salAttend,t.salDays,t.salDeductDay,t.salKpi,t.salDeductKpi,t.salNet].map((h,i)=>
-              <th key={i}style={{padding:"8px 6px",textAlign:i>=3?"right":"left",fontSize:8,fontWeight:700,color:Cl.mu,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
+          <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`,background:`${Cl.bg}80`}}>
+            {["NV","CC","Lương CB","Off","Không nghỉ\nx1.5","Trừ nghỉ","KPI","Trừ KPI","Thưởng\nKPI","Thưởng\nCC","Thưởng\nLễ","Thực nhận\nVNĐ","USDT",""].map((h,i)=>
+              <th key={i}style={{padding:"8px 5px",textAlign:i>=2?"right":"left",fontSize:8,fontWeight:700,color:Cl.mu,whiteSpace:"pre-line",lineHeight:1.3}}>{h}</th>)}
           </tr></thead>
           <tbody>{staffList.map(e=>{const s=calcSalary(e);return<tr key={e.id}style={{borderBottom:`1px solid ${Cl.bdr}06`}}onMouseEnter={ev=>ev.currentTarget.style.background=`${Cl.ac}05`}onMouseLeave={ev=>ev.currentTarget.style.background=""}>
-            <td style={{padding:"6px 6px"}}><div style={{display:"flex",alignItems:"center",gap:5}}><Av name={e.name}role={e.role}size={22}/><div><div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:8,color:Cl.mu}}>{e.empCode} · {e.dai}</div></div></div></td>
-            <td style={{padding:"6px 6px",fontSize:9,color:Cl.tx}}>{e.nationality||"—"}</td>
-            <td style={{padding:"6px 6px"}}>{s.configured&&<span style={{fontSize:8,padding:"2px 5px",borderRadius:4,background:s.isConfirmed?`${Cl.ok}15`:`${Cl.wr}15`,color:s.isConfirmed?Cl.ok:Cl.wr,fontWeight:600}}>{s.isConfirmed?(s.daysPre>0?`${s.daysPost}/${dim}d`:t.salPost):t.salPre}</span>}</td>
-            {!s.configured?<td colSpan={8}style={{padding:"6px",fontSize:10,color:Cl.wr,textAlign:"center"}}>{t.salNoConfig}</td>
+            <td style={{padding:"6px 5px"}}><div style={{display:"flex",alignItems:"center",gap:4}}><Av name={e.name}role={e.role}size={20}/><div><div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:8,color:Cl.mu}}>{e.empCode} · {e.dai}</div></div></div></td>
+            <td style={{padding:"6px 4px"}}>{s.configured&&<div><span style={{fontSize:8,padding:"2px 4px",borderRadius:4,display:"inline-block",background:s.isConfirmed?`${Cl.ok}15`:`${Cl.wr}15`,color:s.isConfirmed?Cl.ok:Cl.wr,fontWeight:600}}>{s.isConfirmed?(s.daysPre>0?`CC ${s.daysPost}/${dim}d`:`T${s.monthsSinceCC}`):"Thử việc"}</span>{s.seniorityRaise>0&&<div style={{fontSize:7,color:Cl.ok,marginTop:1}}>+{fmtN(s.seniorityRaise)}</div>}</div>}</td>
+            {!s.configured?<td colSpan={12}style={{padding:"6px",color:Cl.wr,textAlign:"center"}}>{t.salNoConfig}</td>
             :<React.Fragment>
-              <td style={{padding:"6px",fontSize:10,color:Cl.tx,fontFamily:FM,textAlign:"right"}}>{fmtN(s.baseCalc)}</td>
-              <td style={{padding:"6px",fontSize:10,color:s.kpiBonus?Cl.ok:Cl.mu,fontFamily:FM,textAlign:"right"}}>{s.kpiBonus?`+${fmtN(s.kpiBonus)}`:"—"}</td>
-              <td style={{padding:"6px",fontSize:10,color:s.attendBonus?Cl.ok:Cl.mu,fontFamily:FM,textAlign:"right"}}>{s.attendBonus?`+${fmtN(s.attendBonus)}`:"—"}</td>
-              <td style={{padding:"6px",fontSize:10,color:s.leaveDays>0?Cl.no:Cl.mu,fontFamily:FM,textAlign:"right",fontWeight:600}}>{s.leaveDays}</td>
-              <td style={{padding:"6px",fontSize:10,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{s.deductDay>0?`-${fmtN(s.deductDay)}`:"0"}</td>
-              <td style={{padding:"6px",fontSize:10,color:s.kpiTotal>0?Cl.no:Cl.mu,fontFamily:FM,textAlign:"right",fontWeight:600}}>{s.kpiTotal}</td>
-              <td style={{padding:"6px",fontSize:10,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{s.deductKpi>0?`-${fmtN(s.deductKpi)}`:"0"}</td>
-              <td style={{padding:"6px",fontSize:12,color:Cl.ok,fontFamily:FM,textAlign:"right",fontWeight:800}}>{fmtN(s.net)}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:Cl.tx}}>{fmtN(s.baseCalc)}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.totalOff>0?Cl.no:Cl.ok,fontWeight:600}}>{s.totalOff}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.noOffBonus>0?Cl.ok:Cl.mu}}>{s.noOffBonus>0?`+${fmtN(s.noOffBonus)}`:"0"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.leaveDeduct>0?Cl.no:Cl.mu}}>{s.leaveDeduct>0?`-${fmtN(s.leaveDeduct)}`:"0"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.kpiTotal>0?Cl.no:Cl.mu,fontWeight:600}}>{s.kpiTotal}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:Cl.no}}>{s.deductKpi>0?`-${fmtN(s.deductKpi)}`:"0"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.kpiBonus?Cl.ok:Cl.mu}}>{s.kpiBonus?`+${fmtN(s.kpiBonus)}`:"—"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.attendBonus?Cl.ok:Cl.mu}}>{s.attendBonus?`+${fmtN(s.attendBonus)}`:"—"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.holidayBonus?Cl.ok:Cl.mu}}>{s.holidayBonus?`+${fmtN(s.holidayBonus)}`:"—"}</td>
+              <td style={{padding:"6px 4px",fontSize:11,fontFamily:FM,textAlign:"right",color:Cl.ok,fontWeight:800}}>{fmtN(s.net)}</td>
+              <td style={{padding:"6px 4px",fontSize:10,fontFamily:FM,textAlign:"right",color:"#f59e0b",fontWeight:700}}>{fmtN(s.usdt)}</td>
+              <td style={{padding:"6px 4px"}}><button onClick={()=>sShowDetail(showDetail===e.id?null:e.id)}style={{background:"none",border:`1px solid ${Cl.bdr}`,borderRadius:4,color:Cl.mu,cursor:"pointer",fontSize:9,padding:"2px 5px"}}>📋</button></td>
             </React.Fragment>}
-          </tr>})}</tbody>
+          </tr>)}
+          {/* Detail row */}
+          {staffList.map(e=>{if(showDetail!==e.id)return null;const s=calcSalary(e);if(!s||!s.configured)return null;
+          return<tr key={`d-${e.id}`}><td colSpan={14}style={{padding:"10px 12px",background:Cl.bg,borderBottom:`2px solid ${Cl.bdr}`}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,fontSize:10}}>
+              <div><span style={{color:Cl.mu}}>Lương/ngày:</span> <span style={{color:Cl.tx,fontFamily:FM,fontWeight:700}}>{fmtN(s.dailyRate)}</span></div>
+              <div><span style={{color:Cl.mu}}>Thâm niên CC:</span> <span style={{fontFamily:FM,color:s.monthsSinceCC>=0?Cl.acL:Cl.wr}}>{s.monthsSinceCC>=0?`${s.monthsSinceCC} tháng`:"Chưa CC"}</span></div>
+              <div><span style={{color:Cl.mu}}>Tăng lương:</span> <span style={{fontFamily:FM,color:s.seniorityRaise>0?Cl.ok:Cl.mu}}>{s.quarters>0?`+${fmtN(s.seniorityRaise)} (×${s.quarters} lần)`:"Chưa tăng"}</span></div>
+              <div><span style={{color:Cl.mu}}>Lương CB hiện tại:</span> <span style={{fontFamily:FM,fontWeight:700,color:Cl.tx}}>{fmtN(s.basePost)}{s.seniorityRaise>0?` (${fmtN(s.origBasePost)}+${fmtN(s.seniorityRaise)})`:""}</span></div>
+              <div><span style={{color:Cl.mu}}>Chưa CC:</span> <span style={{fontFamily:FM}}>{s.daysPre}d × {fmtN(s.basePre)}/{dim}</span></div>
+              <div><span style={{color:Cl.mu}}>Đã CC:</span> <span style={{fontFamily:FM}}>{s.daysPost}d × {fmtN(s.basePost)}/{dim}</span></div>
+              <div><span style={{color:Cl.mu}}>Không nghỉ:</span> <span style={{color:Cl.ok,fontFamily:FM}}>{s.unusedOffDays}d × {fmtN(s.dailyRate)} × 150%</span></div>
+              <div><span style={{color:Cl.mu}}>Nghỉ:</span> <span style={{fontFamily:FM}}>{s.totalOff}d / 4d phép</span></div>
+              <div><span style={{color:Cl.mu}}>NKL penalty:</span> <span style={{color:Cl.no,fontFamily:FM}}>{s.unpaidCount} lần → trừ {s.unpaidPenaltyDays}d</span></div>
+              <div><span style={{color:Cl.mu}}>Liên tiếp:</span> <span style={{color:Cl.no,fontFamily:FM}}>trừ thêm {s.consecutivePenaltyDays}d</span></div>
+              <div><span style={{color:Cl.mu}}>Lễ:</span> <span style={{color:Cl.ok,fontFamily:FM}}>{ms.holidays||0} ngày × {ms.holidayPct||0}%</span></div>
+              <div><span style={{color:Cl.mu}}>Chuyển chính:</span> <span style={{fontFamily:FM}}>{e.transferDate?fmt(e.transferDate):"—"}</span></div>
+            </div>
+            {s.empLeaves.length>0&&<div style={{marginTop:6,display:"flex",flexWrap:"wrap",gap:3}}>{s.empLeaves.map(l=><span key={l.date}style={{padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600,background:l.reason==="Nghỉ không lương"?`${Cl.no}15`:`${Cl.wr}15`,color:l.reason==="Nghỉ không lương"?Cl.no:Cl.wr,border:`1px solid ${l.reason==="Nghỉ không lương"?Cl.no:Cl.wr}20`}}>{fmt(l.date).slice(0,5)} {l.reason==="Nghỉ không lương"?"NKL":"NP"}</span>)}</div>}
+          </td></tr>})}</tbody>
           {!isStaff&&staffList.length>0&&<tfoot><tr style={{borderTop:`2px solid ${Cl.bdr}`}}>
-            <td colSpan={3}style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.tx}}>TỔNG</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.tx,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.baseCalc:0)},0))}</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.kpiBonus:0)},0))}</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.attendBonus:0)},0))}</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.leaveDays:0)},0)}</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>-{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.deductDay:0)},0))}</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.kpiTotal:0)},0)}</td>
-            <td style={{padding:"10px 6px",fontSize:11,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>-{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.deductKpi:0)},0))}</td>
-            <td style={{padding:"10px 6px",fontSize:13,fontWeight:900,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.net:0)},0))}</td>
+            <td colSpan={2}style={{padding:"10px 5px",fontSize:11,fontWeight:800,color:Cl.tx}}>TỔNG ({staffList.length})</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.tx,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.baseCalc:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.totalOff:0)},0)}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.noOffBonus:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>-{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.leaveDeduct:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>{staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.kpiTotal:0)},0)}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.no,fontFamily:FM,textAlign:"right"}}>-{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.deductKpi:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.kpiBonus:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.attendBonus:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.holidayBonus:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:12,fontWeight:900,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.net:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:11,fontWeight:800,color:"#f59e0b",fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.usdt:0)},0))}</td>
+            <td></td>
           </tr></tfoot>}
         </table>
       </div>

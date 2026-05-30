@@ -842,7 +842,6 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
       kpiTotal,deductKpi,kpiBonus,attendBonus,holidayBonus,
       net,usdt,empLeaves};
   };
-  };
 
   const staffList=isStaff?emps.filter(e=>e.id===cur.id):emps.filter(e=>e.role==="staff"&&(isA||e.role!=="admin")&&e.status==="active");
 

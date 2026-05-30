@@ -77,7 +77,7 @@ vi:{
   leaveToday:"Nghỉ hôm nay",noLeave:"Không có ai nghỉ ✅",shiftToday:"Phân ca hôm nay",byDai:"Theo đài",byShift:"Theo ca",persons:"người",
   empMg:"Quản lý nhân viên",addCSKH:"＋ Thêm CSKH",searchPh:"🔍 Tìm tên, mã NV...",allLv:"Tất cả cấp độ",allDai:"Tất cả đài",allSh:"Tất cả ca",
   cName:"Nhân viên",cCode:"Mã NV",cLv:"Cấp độ",cDai:"Đài",cSh:"Ca làm",cNat:"Quốc tịch",cSt:"Trạng thái",cJoin:"Ngày vào",cTrans:"Chuyển chính",
-  active:"Đang làm",inactive:"Tạm nghỉ",noRes:"Không tìm thấy",
+  active:"Đang làm",inactive:"Tạm nghỉ",resigned:"Nghỉ việc",noRes:"Không tìm thấy",
   sByDai:"📊 Theo đài",sByNat:"🌏 Theo quốc tịch",sBySh:"⏰ Theo ca",
   leaveMg:"Quản lý ngày nghỉ",addLv:"＋ Thêm ngày nghỉ",mo:"Tháng",lvCnt:"lượt nghỉ",allEmp:"Tất cả NV",
   calT:"📅 Lịch nghỉ tháng",lvList:"📋 DS nghỉ",noLvD:"Không có lịch nghỉ",lvStat:"📊 Thống kê nghỉ tháng",
@@ -95,7 +95,7 @@ vi:{
   editEmp:"Chỉnh sửa NV",addEmpT:"Thêm NV CSKH",
   fName:"Tên nhân viên *",fCode:"Mã nhân viên *",fJoin:"Ngày nhận việc *",fNat:"Quốc tịch",fDai:"Đài làm việc *",fShift:"Ca làm",fLv:"Cấp độ",fSt:"Trạng thái",
   fTrans:"Ngày chuyển chính",fUser:"Username",fPass:"Mật khẩu",
-  save:"💾 Lưu",create:"＋ Tạo",stA:"✅ Đang làm",stI:"⏸ Tạm nghỉ",
+  save:"💾 Lưu",create:"＋ Tạo",stA:"✅ Đang làm",stI:"⏸ Tạm nghỉ",stR:"🚫 Nghỉ việc",
   logout:"🚪 Đăng xuất",loading:"Đang tải...",delCfm:"Bạn có chắc muốn xoá?",
   penT:"Lỗi / KPI",addPen:"＋ Lỗi",penKpi:"KPI trừ",penReason:"Lý do lỗi",penDate:"Ngày",penList:"DS lỗi",noPen:"Không có lỗi",
   dayOff:"Nghỉ ngày",close:"Đóng",exportExcel:"📥 Xuất Excel",batchAdd:"Thêm nghỉ hàng loạt",batchDays:"Các ngày (phân cách bằng dấu .)",batchMonth:"Tháng",batchPreview:"Xem trước",batchConfirm:"Thêm",
@@ -128,7 +128,7 @@ zh:{
   editEmp:"编辑员工",addEmpT:"添加客服",
   fName:"姓名 *",fCode:"工号 *",fJoin:"入职日期 *",fNat:"国籍",fDai:"工作台 *",fShift:"班次",fLv:"级别",fSt:"状态",
   fTrans:"转正日期",fUser:"用户名",fPass:"密码",
-  save:"💾 保存",create:"＋ 创建",stA:"✅ 在职",stI:"⏸ 休息中",
+  save:"💾 保存",create:"＋ 创建",stA:"✅ 在职",stI:"⏸ 休息中",stR:"🚫 离职",
   logout:"🚪 退出",loading:"加载中...",delCfm:"确定删除？",
   penT:"扣分 / KPI",addPen:"＋ 扣分",penKpi:"扣KPI",penReason:"扣分原因",penDate:"日期",penList:"扣分列表",noPen:"无扣分",
   dayOff:"休假日",close:"关闭",exportExcel:"📥 导出Excel",batchAdd:"批量添加休假",batchDays:"日期(用.分隔)",batchMonth:"月份",batchPreview:"预览",batchConfirm:"添加",
@@ -161,7 +161,7 @@ en:{
   editEmp:"Edit Employee",addEmpT:"Add CS Staff",
   fName:"Name *",fCode:"Code *",fJoin:"Join Date *",fNat:"Nationality",fDai:"Station *",fShift:"Shift",fLv:"Level",fSt:"Status",
   fTrans:"Confirm Date",fUser:"Username",fPass:"Password",
-  save:"💾 Save",create:"＋ Create",stA:"✅ Active",stI:"⏸ Inactive",
+  save:"💾 Save",create:"＋ Create",stA:"✅ Active",stI:"⏸ Inactive",stR:"🚫 Resigned",
   logout:"🚪 Logout",loading:"Loading...",delCfm:"Confirm delete?",
   penT:"Penalties / KPI",addPen:"＋ Penalty",penKpi:"KPI Deduct",penReason:"Reason",penDate:"Date",penList:"Penalty List",noPen:"No penalties",
   dayOff:"Day Off",close:"Close",exportExcel:"📥 Export Excel",batchAdd:"Batch add leave",batchDays:"Days (separated by .)",batchMonth:"Month",batchPreview:"Preview",batchConfirm:"Add",
@@ -239,7 +239,7 @@ function DBdg({dai}){if(!dai||dai==="—")return<span style={{fontSize:10,color:
 
 function SBdg({shift}){const lg=useContext(LC);const s=SH[shift];if(!s||shift===0)return<span style={{fontSize:10,color:Cl.mu}}>—</span>;return<span style={{display:"inline-flex",alignItems:"center",gap:3,padding:"2px 8px",borderRadius:20,background:`${s.color}15`,color:s.color,fontSize:10,fontWeight:600,border:`1px solid ${s.color}25`}}>{s.icon} {s.label[lg]}</span>}
 
-function SDot({active}){const t=useT();return<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:active?Cl.ok:Cl.mu}}><span style={{width:6,height:6,borderRadius:"50%",background:active?Cl.ok:"#555",boxShadow:active?`0 0 6px ${Cl.ok}50`:"none"}}/>{active?t.active:t.inactive}</span>}
+function SDot({status}){const t=useT();const isA=status==="active";const isR=status==="resigned";const c=isA?Cl.ok:isR?Cl.no:Cl.mu;const lb=isA?t.active:isR?(t.resigned||"Nghỉ việc"):t.inactive;return<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:c}}><span style={{width:6,height:6,borderRadius:"50%",background:c,boxShadow:isA?`0 0 6px ${Cl.ok}50`:"none"}}/>{lb}</span>}
 
 function Btn({children,v="primary",sm,disabled,...p}){
   const S={primary:[Cl.ac,"#fff",Cl.acL],danger:[Cl.no,"#fff","#f87171"],ghost:["transparent",Cl.mu,Cl.card],success:[Cl.ok,"#fff","#34d399"],warn:[Cl.wr,"#fff","#fbbf24"]};
@@ -424,7 +424,7 @@ function EmpP({emps,cur,dais,onEdit,onAdd,onDel}){
     const rows=sorted.map(e=>({
       "Mã NV":e.empCode,"Tên":e.name,"Cấp độ":rl(e.role,lg),
       "Đài":e.dai,"Ca làm":SH[e.shift]?.label[lg]||"—",
-      "Quốc tịch":e.nationality||"","Trạng thái":e.status==="active"?"Đang làm":"Tạm nghỉ",
+      "Quốc tịch":e.nationality||"","Trạng thái":e.status==="active"?"Đang làm":e.status==="resigned"?"Nghỉ việc":"Tạm nghỉ",
       "Ngày vào":fmt(e.joinDate),"Ngày chuyển chính":fmt(e.transferDate)
     }));
     const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
@@ -480,7 +480,7 @@ function EmpP({emps,cur,dais,onEdit,onAdd,onDel}){
             <td style={{padding:"7px 8px"}}><SBdg shift={e.shift}/></td>
             <td style={{padding:"7px 8px",fontSize:10,color:Cl.tx}}>{e.nationality||"—"}</td>
             <td style={{padding:"7px 8px",fontSize:10,color:e.transferDate?Cl.ok:Cl.mu,fontFamily:FM}}>{e.transferDate?fmt(e.transferDate):"—"}</td>
-            <td style={{padding:"7px 8px"}}><SDot active={e.status==="active"}/></td>
+            <td style={{padding:"7px 8px"}}><SDot status={e.status}/></td>
             <td style={{padding:"7px 8px",fontSize:10,color:Cl.mu,fontFamily:FM}}>{fmt(e.joinDate)}</td>
             <td style={{padding:"7px 8px"}}>{mg&&<div style={{display:"flex",gap:2}}><Btn v="ghost"sm onClick={()=>onEdit(e)}>✏️</Btn><Btn v="ghost"sm onClick={()=>onDel(e)}style={{color:Cl.no}}>🗑</Btn></div>}</td>
           </tr>)}</tbody>
@@ -752,9 +752,14 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
   const ms=msCfg[month]||{rate:26880,holidays:0,holidayPct:100};
   const setMs=(field,val)=>{
     const n={...cfg};if(!n._monthly)n._monthly={};
-    if(!n._monthly[month])n._monthly[month]={rate:26880,holidays:0,holidayPct:100};
-    n._monthly[month][field]=Number(val)||0;sCfg(n);
+    if(!n._monthly[month])n._monthly[month]={rate:26880,holidayDates:"",holidayPct:100,lixiAmount:0,birthdayAmount:0};
+    n._monthly[month][field]=field==="holidayDates"?val:(Number(val)||0);sCfg(n);
   };
+  // Parse holiday dates from comma/dot separated string → array of yyyy-mm-dd
+  const holidayDateList=useMemo(()=>{
+    const raw=ms.holidayDates||"";if(!raw)return[];
+    return raw.split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31).map(d=>`${month}-${String(Number(d)).padStart(2,"0")}`);
+  },[ms.holidayDates,month]);
 
   // ===== NATIONALITY CONFIG =====
   // basePre, basePost: lương chưa/đã CC
@@ -811,6 +816,7 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
     const empLeaves=leaves.filter(l=>l.empId===emp.id&&l.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date));
     const totalOff=empLeaves.length;
     const ALLOWED_OFF=4;
+    const MIN_OFF=2; // bắt buộc nghỉ ít nhất 2 ngày
     const unpaidLeaves=empLeaves.filter(l=>l.reason==="Nghỉ không lương");
 
     let consecutivePenaltyDays=0;
@@ -821,7 +827,8 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
     }
 
     const unpaidPenaltyDays=unpaidLeaves.length*2;
-    const unusedOffDays=Math.max(0,ALLOWED_OFF-totalOff);
+    // Bonus days: max 2 (bắt buộc nghỉ 2, tối đa nghỉ 4, nên tối đa 2 ngày bonus)
+    const unusedOffDays=Math.min(2,Math.max(0,ALLOWED_OFF-totalOff));
     const noOffBonus=Math.round(unusedOffDays*dailyRate*1.5);
     const leaveDeduct=Math.round((unpaidPenaltyDays+consecutivePenaltyDays)*dailyRate);
 
@@ -830,16 +837,26 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
 
     const kpiBonus=daysPost>0?Math.round((daysPost/dim)*(c.kpiBonus||0)):0;
     const attendBonus=daysPost>0?Math.round((daysPost/dim)*(c.attendBonus||0)):0;
-    const holidayBonus=Math.round((ms.holidays||0)*dailyRate*(ms.holidayPct||0)/100);
 
-    const net=Math.max(0,baseCalc+noOffBonus+kpiBonus+attendBonus+holidayBonus-leaveDeduct-deductKpi);
+    // Holiday bonus: only for days the employee WORKED (not on leave)
+    const empLeaveDates=new Set(empLeaves.map(l=>l.date));
+    const workedHolidays=holidayDateList.filter(d=>!empLeaveDates.has(d));
+    const holidayBonus=Math.round(workedHolidays.length*dailyRate*(ms.holidayPct||0)/100);
+
+    // Lì xì & Sinh nhật (from monthly toggle lists)
+    const lixiIds=ms.lixiEmpIds||[];const birthdayIds=ms.birthdayEmpIds||[];
+    const lixiBonus=lixiIds.includes(emp.id)?(ms.lixiAmount||0):0;
+    const birthdayBonus=birthdayIds.includes(emp.id)?(ms.birthdayAmount||0):0;
+
+    const net=Math.max(0,baseCalc+noOffBonus+kpiBonus+attendBonus+holidayBonus+lixiBonus+birthdayBonus-leaveDeduct-deductKpi);
     const usdt=ms.rate?Math.round(net/ms.rate):0;
 
     return{configured:true,basePre,basePost:actualBasePost,origBasePost:basePostOrig,daysPre,daysPost,baseCalc,dailyRate,isConfirmed,
       monthsSinceCC,quarters,seniorityRaise,increment,
       totalOff,unusedOffDays,noOffBonus,
       unpaidCount:unpaidLeaves.length,unpaidPenaltyDays,consecutivePenaltyDays,leaveDeduct,
-      kpiTotal,deductKpi,kpiBonus,attendBonus,holidayBonus,
+      kpiTotal,deductKpi,kpiBonus,attendBonus,holidayBonus,workedHolidays:workedHolidays.length,
+      lixiBonus,birthdayBonus,
       net,usdt,empLeaves};
   };
 
@@ -856,6 +873,7 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
       "Trừ nghỉ":s.leaveDeduct,
       "KPI trừ":s.kpiTotal,"Trừ KPI":s.deductKpi,
       "Thưởng KPI":s.kpiBonus,"Thưởng CC":s.attendBonus,"Thưởng lễ":s.holidayBonus,
+      "Lì xì":s.lixiBonus,"Sinh nhật":s.birthdayBonus,
       "Thực nhận (VNĐ)":s.net,"USDT":s.usdt
     }}).filter(Boolean);
     const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();
@@ -872,21 +890,34 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
     </div>
 
     {/* Monthly settings bar */}
-    {isA&&<div style={{display:"flex",gap:12,marginBottom:14,padding:"12px 16px",background:Cl.card,borderRadius:10,border:`1px solid ${Cl.bdr}`,alignItems:"center",flexWrap:"wrap"}}>
-      <div style={{fontSize:10,color:Cl.mu,fontWeight:700}}>⚙️ Tháng {m}/{y}</div>
-      <div style={{display:"flex",alignItems:"center",gap:4}}>
-        <label style={{fontSize:10,color:Cl.mu}}>Tỷ giá (VNĐ/USDT):</label>
-        <input type="number"value={ms.rate||""}onChange={e=>setMs("rate",e.target.value)}style={{width:90,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:"#f59e0b",fontSize:11,fontFamily:FM,outline:"none",textAlign:"right",fontWeight:700}}/>
+    {isA&&<div style={{background:Cl.card,borderRadius:10,border:`1px solid ${Cl.bdr}`,marginBottom:14,padding:"14px 16px"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div style={{fontSize:11,color:Cl.tx,fontWeight:700}}>⚙️ Cài đặt tháng {m}/{y} <span style={{fontSize:9,color:Cl.mu,fontWeight:400}}>— Lương tính vào ngày 3 tháng sau</span></div>
+        <Btn v="success" sm onClick={saveCfg} disabled={saving}>{saving?"...":"💾 Lưu"}</Btn>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:4}}>
-        <label style={{fontSize:10,color:Cl.mu}}>Số ngày lễ:</label>
-        <input type="number"value={ms.holidays||""}onChange={e=>setMs("holidays",e.target.value)}style={{width:50,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+        <div><label style={{fontSize:9,color:Cl.mu,display:"block",marginBottom:2}}>Tỷ giá VNĐ/USDT</label>
+          <input type="number"value={ms.rate||""}onChange={e=>setMs("rate",e.target.value)}style={{width:90,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:"#f59e0b",fontSize:11,fontFamily:FM,outline:"none",textAlign:"right",fontWeight:700}}/></div>
+        <div><label style={{fontSize:9,color:Cl.mu,display:"block",marginBottom:2}}>Ngày lễ (VD: 1.30)</label>
+          <input value={ms.holidayDates||""}onChange={e=>setMs("holidayDates",e.target.value)}placeholder="1.30"style={{width:90,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none"}}/></div>
+        <div><label style={{fontSize:9,color:Cl.mu,display:"block",marginBottom:2}}>Thưởng lễ %</label>
+          <input type="number"value={ms.holidayPct||""}onChange={e=>setMs("holidayPct",e.target.value)}style={{width:55,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/></div>
+        <div><label style={{fontSize:9,color:Cl.mu,display:"block",marginBottom:2}}>Thưởng lì xì ₫</label>
+          <input type="number"value={ms.lixiAmount||""}onChange={e=>setMs("lixiAmount",e.target.value)}style={{width:90,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/></div>
+        <div><label style={{fontSize:9,color:Cl.mu,display:"block",marginBottom:2}}>Thưởng sinh nhật ₫</label>
+          <input type="number"value={ms.birthdayAmount||""}onChange={e=>setMs("birthdayAmount",e.target.value)}style={{width:90,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/></div>
       </div>
-      <div style={{display:"flex",alignItems:"center",gap:4}}>
-        <label style={{fontSize:10,color:Cl.mu}}>Thưởng lễ (%):</label>
-        <input type="number"value={ms.holidayPct||""}onChange={e=>setMs("holidayPct",e.target.value)}style={{width:55,padding:"4px 8px",borderRadius:6,border:`1px solid ${Cl.bdr}`,background:Cl.bg,color:Cl.tx,fontSize:11,fontFamily:FM,outline:"none",textAlign:"right"}}/>
-      </div>
-      <Btn v="success" sm onClick={saveCfg} disabled={saving}>{saving?"...":"💾 Lưu"}</Btn>
+      {/* Holiday dates preview */}
+      {holidayDateList.length>0&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}><span style={{fontSize:9,color:Cl.mu}}>🎉 Ngày lễ:</span>{holidayDateList.map(d=><span key={d}style={{padding:"2px 6px",borderRadius:4,background:`${Cl.no}12`,color:Cl.no,fontSize:9,fontWeight:600}}>{fmt(d).slice(0,5)}</span>)}</div>}
+      {/* Lixi & Birthday employee toggles */}
+      {(ms.lixiAmount>0||ms.birthdayAmount>0)&&<div style={{marginTop:8,padding:"8px 10px",borderRadius:8,background:Cl.bg,border:`1px solid ${Cl.bdr}`}}>
+        {ms.lixiAmount>0&&<div style={{marginBottom:6}}><div style={{fontSize:9,color:Cl.wr,fontWeight:700,marginBottom:4}}>🧧 Lì xì — Chọn NV nhận ({(ms.lixiEmpIds||[]).length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>{staffList.map(e=>{const sel=(ms.lixiEmpIds||[]).includes(e.id);return<button key={e.id}onClick={()=>{const n={...cfg};if(!n._monthly)n._monthly={};if(!n._monthly[month])n._monthly[month]={...ms};const cur=n._monthly[month].lixiEmpIds||[];n._monthly[month].lixiEmpIds=sel?cur.filter(id=>id!==e.id):[...cur,e.id];sCfg(n)}}style={{padding:"2px 6px",borderRadius:4,border:`1px solid ${sel?Cl.wr:Cl.bdr}`,background:sel?`${Cl.wr}15`:"transparent",color:sel?Cl.wr:Cl.mu,fontSize:9,cursor:"pointer",fontWeight:sel?600:400}}>{e.name}</button>})}</div>
+        </div>}
+        {ms.birthdayAmount>0&&<div><div style={{fontSize:9,color:"#ec4899",fontWeight:700,marginBottom:4}}>🎂 Sinh nhật — Chọn NV ({(ms.birthdayEmpIds||[]).length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:3}}>{staffList.map(e=>{const sel=(ms.birthdayEmpIds||[]).includes(e.id);return<button key={e.id}onClick={()=>{const n={...cfg};if(!n._monthly)n._monthly={};if(!n._monthly[month])n._monthly[month]={...ms};const cur=n._monthly[month].birthdayEmpIds||[];n._monthly[month].birthdayEmpIds=sel?cur.filter(id=>id!==e.id):[...cur,e.id];sCfg(n)}}style={{padding:"2px 6px",borderRadius:4,border:`1px solid ${sel?"#ec4899":Cl.bdr}`,background:sel?"#ec489915":"transparent",color:sel?"#ec4899":Cl.mu,fontSize:9,cursor:"pointer",fontWeight:sel?600:400}}>{e.name}</button>})}</div>
+        </div>}
+      </div>}
     </div>}
 
     {/* CSKH personal card */}
@@ -902,12 +933,14 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
         </div>
         <div style={{background:Cl.bg,borderRadius:10,padding:12}}>
           <div style={{fontSize:9,color:Cl.mu,marginBottom:2}}>Thưởng</div>
-          <div style={{fontSize:16,fontWeight:800,color:Cl.ok,fontFamily:FM}}>+{fmtN(s.noOffBonus+s.kpiBonus+s.attendBonus+s.holidayBonus)}</div>
+          <div style={{fontSize:16,fontWeight:800,color:Cl.ok,fontFamily:FM}}>+{fmtN(s.noOffBonus+s.kpiBonus+s.attendBonus+s.holidayBonus+s.lixiBonus+s.birthdayBonus)}</div>
           <div style={{fontSize:8,color:Cl.mu,marginTop:3}}>
-            {s.unusedOffDays>0&&<span>Không nghỉ {s.unusedOffDays}d: +{fmtN(s.noOffBonus)} · </span>}
+            {s.unusedOffDays>0&&<span>x1.5 {s.unusedOffDays}d: +{fmtN(s.noOffBonus)} · </span>}
             {s.kpiBonus>0&&<span>KPI: +{fmtN(s.kpiBonus)} · </span>}
             {s.attendBonus>0&&<span>CC: +{fmtN(s.attendBonus)} · </span>}
-            {s.holidayBonus>0&&<span>Lễ: +{fmtN(s.holidayBonus)}</span>}
+            {s.holidayBonus>0&&<span>Lễ: +{fmtN(s.holidayBonus)} · </span>}
+            {s.lixiBonus>0&&<span>🧧 +{fmtN(s.lixiBonus)} · </span>}
+            {s.birthdayBonus>0&&<span>🎂 +{fmtN(s.birthdayBonus)}</span>}
           </div>
         </div>
         <div style={{background:Cl.bg,borderRadius:10,padding:12}}>
@@ -933,7 +966,7 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
         <Btn v="success" sm onClick={saveCfg} disabled={saving}>{saving?"...":t.salSave}</Btn>
       </div>
       <div style={{padding:"8px 10px",borderRadius:8,background:`${Cl.wr}08`,border:`1px solid ${Cl.wr}18`,marginBottom:10,fontSize:10,color:Cl.wr,lineHeight:1.5}}>
-        📌 Quy tắc: 4 ngày nghỉ/tháng · Không nghỉ = x150% lương/ngày · NKL = trừ 2 ngày · 2 ngày liên tiếp = trừ thêm 3 ngày · Sau CC mỗi 3 tháng tự động tăng lương
+        📌 4 ngày nghỉ/tháng (bắt buộc nghỉ ≥2) · Tối đa 2 ngày x150% · NKL = trừ 2 ngày · 2 ngày liên tiếp = trừ thêm 3 ngày · Sau CC mỗi 3 tháng tăng lương · Thưởng lễ chỉ cho NV đi làm ngày lễ
       </div>
       <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo}}>
         <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`}}>
@@ -956,13 +989,13 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
       <div style={{overflowX:"auto"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontFamily:Fo,fontSize:10}}>
           <thead><tr style={{borderBottom:`1px solid ${Cl.bdr}`,background:`${Cl.bg}80`}}>
-            {["NV","CC","Lương CB","Off","Không nghỉ\nx1.5","Trừ nghỉ","KPI","Trừ KPI","Thưởng\nKPI","Thưởng\nCC","Thưởng\nLễ","Thực nhận\nVNĐ","USDT",""].map((h,i)=>
+            {["NV","CC","Lương CB","Off","x1.5","Trừ nghỉ","KPI","Trừ KPI","Thưởng\nKPI","Thưởng\nCC","Lễ","🧧","🎂","Thực nhận\nVNĐ","USDT",""].map((h,i)=>
               <th key={i}style={{padding:"8px 5px",textAlign:i>=2?"right":"left",fontSize:8,fontWeight:700,color:Cl.mu,whiteSpace:"pre-line",lineHeight:1.3}}>{h}</th>)}
           </tr></thead>
           <tbody>{staffList.map(e=>{const s=calcSalary(e);return<tr key={e.id}style={{borderBottom:`1px solid ${Cl.bdr}06`}}onMouseEnter={ev=>ev.currentTarget.style.background=`${Cl.ac}05`}onMouseLeave={ev=>ev.currentTarget.style.background=""}>
             <td style={{padding:"6px 5px"}}><div style={{display:"flex",alignItems:"center",gap:4}}><Av name={e.name}role={e.role}size={20}/><div><div style={{fontSize:10,fontWeight:600,color:Cl.tx}}>{e.name}</div><div style={{fontSize:8,color:Cl.mu}}>{e.empCode} · {e.dai}</div></div></div></td>
             <td style={{padding:"6px 4px"}}>{s.configured&&<div><span style={{fontSize:8,padding:"2px 4px",borderRadius:4,display:"inline-block",background:s.isConfirmed?`${Cl.ok}15`:`${Cl.wr}15`,color:s.isConfirmed?Cl.ok:Cl.wr,fontWeight:600}}>{s.isConfirmed?(s.daysPre>0?`CC ${s.daysPost}/${dim}d`:`T${s.monthsSinceCC}`):"Thử việc"}</span>{s.seniorityRaise>0&&<div style={{fontSize:7,color:Cl.ok,marginTop:1}}>+{fmtN(s.seniorityRaise)}</div>}</div>}</td>
-            {!s.configured?<td colSpan={12}style={{padding:"6px",color:Cl.wr,textAlign:"center"}}>{t.salNoConfig}</td>
+            {!s.configured?<td colSpan={14}style={{padding:"6px",color:Cl.wr,textAlign:"center"}}>{t.salNoConfig}</td>
             :<React.Fragment>
               <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:Cl.tx}}>{fmtN(s.baseCalc)}</td>
               <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.totalOff>0?Cl.no:Cl.ok,fontWeight:600}}>{s.totalOff}</td>
@@ -973,6 +1006,8 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
               <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.kpiBonus?Cl.ok:Cl.mu}}>{s.kpiBonus?`+${fmtN(s.kpiBonus)}`:"—"}</td>
               <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.attendBonus?Cl.ok:Cl.mu}}>{s.attendBonus?`+${fmtN(s.attendBonus)}`:"—"}</td>
               <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.holidayBonus?Cl.ok:Cl.mu}}>{s.holidayBonus?`+${fmtN(s.holidayBonus)}`:"—"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.lixiBonus?"#f59e0b":Cl.mu,fontSize:9}}>{s.lixiBonus?`+${fmtN(s.lixiBonus)}`:"—"}</td>
+              <td style={{padding:"6px 4px",fontFamily:FM,textAlign:"right",color:s.birthdayBonus?"#ec4899":Cl.mu,fontSize:9}}>{s.birthdayBonus?`+${fmtN(s.birthdayBonus)}`:"—"}</td>
               <td style={{padding:"6px 4px",fontSize:11,fontFamily:FM,textAlign:"right",color:Cl.ok,fontWeight:800}}>{fmtN(s.net)}</td>
               <td style={{padding:"6px 4px",fontSize:10,fontFamily:FM,textAlign:"right",color:"#f59e0b",fontWeight:700}}>{fmtN(s.usdt)}</td>
               <td style={{padding:"6px 4px"}}><button onClick={()=>sShowDetail(showDetail===e.id?null:e.id)}style={{background:"none",border:`1px solid ${Cl.bdr}`,borderRadius:4,color:Cl.mu,cursor:"pointer",fontSize:9,padding:"2px 5px"}}>📋</button></td>
@@ -980,7 +1015,7 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
           </tr>})}
           {/* Detail row */}
           {staffList.map(e=>{if(showDetail!==e.id)return null;const s=calcSalary(e);if(!s||!s.configured)return null;
-          return<tr key={`d-${e.id}`}><td colSpan={14}style={{padding:"10px 12px",background:Cl.bg,borderBottom:`2px solid ${Cl.bdr}`}}>
+          return<tr key={`d-${e.id}`}><td colSpan={16}style={{padding:"10px 12px",background:Cl.bg,borderBottom:`2px solid ${Cl.bdr}`}}>
             <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,fontSize:10}}>
               <div><span style={{color:Cl.mu}}>Lương/ngày:</span> <span style={{color:Cl.tx,fontFamily:FM,fontWeight:700}}>{fmtN(s.dailyRate)}</span></div>
               <div><span style={{color:Cl.mu}}>Thâm niên CC:</span> <span style={{fontFamily:FM,color:s.monthsSinceCC>=0?Cl.acL:Cl.wr}}>{s.monthsSinceCC>=0?`${s.monthsSinceCC} tháng`:"Chưa CC"}</span></div>
@@ -992,8 +1027,10 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
               <div><span style={{color:Cl.mu}}>Nghỉ:</span> <span style={{fontFamily:FM}}>{s.totalOff}d / 4d phép</span></div>
               <div><span style={{color:Cl.mu}}>NKL penalty:</span> <span style={{color:Cl.no,fontFamily:FM}}>{s.unpaidCount} lần → trừ {s.unpaidPenaltyDays}d</span></div>
               <div><span style={{color:Cl.mu}}>Liên tiếp:</span> <span style={{color:Cl.no,fontFamily:FM}}>trừ thêm {s.consecutivePenaltyDays}d</span></div>
-              <div><span style={{color:Cl.mu}}>Lễ:</span> <span style={{color:Cl.ok,fontFamily:FM}}>{ms.holidays||0} ngày × {ms.holidayPct||0}%</span></div>
+              <div><span style={{color:Cl.mu}}>Lễ:</span> <span style={{color:Cl.ok,fontFamily:FM}}>{s.workedHolidays}/{holidayDateList.length} ngày × {ms.holidayPct||0}%</span></div>
               <div><span style={{color:Cl.mu}}>Chuyển chính:</span> <span style={{fontFamily:FM}}>{e.transferDate?fmt(e.transferDate):"—"}</span></div>
+              {s.lixiBonus>0&&<div><span style={{color:Cl.mu}}>🧧 Lì xì:</span> <span style={{color:"#f59e0b",fontFamily:FM}}>+{fmtN(s.lixiBonus)}</span></div>}
+              {s.birthdayBonus>0&&<div><span style={{color:Cl.mu}}>🎂 Sinh nhật:</span> <span style={{color:"#ec4899",fontFamily:FM}}>+{fmtN(s.birthdayBonus)}</span></div>}
             </div>
             {s.empLeaves.length>0&&<div style={{marginTop:6,display:"flex",flexWrap:"wrap",gap:3}}>{s.empLeaves.map(l=><span key={l.date}style={{padding:"2px 6px",borderRadius:4,fontSize:9,fontWeight:600,background:l.reason==="Nghỉ không lương"?`${Cl.no}15`:`${Cl.wr}15`,color:l.reason==="Nghỉ không lương"?Cl.no:Cl.wr,border:`1px solid ${l.reason==="Nghỉ không lương"?Cl.no:Cl.wr}20`}}>{fmt(l.date).slice(0,5)} {l.reason==="Nghỉ không lương"?"NKL":"NP"}</span>)}</div>}
           </td></tr>})}</tbody>
@@ -1008,6 +1045,8 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
             <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.kpiBonus:0)},0))}</td>
             <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.attendBonus:0)},0))}</td>
             <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>+{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.holidayBonus:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:"#f59e0b",fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.lixiBonus:0)},0))}</td>
+            <td style={{padding:"10px 4px",fontSize:10,fontWeight:800,color:"#ec4899",fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.birthdayBonus:0)},0))}</td>
             <td style={{padding:"10px 4px",fontSize:12,fontWeight:900,color:Cl.ok,fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.net:0)},0))}</td>
             <td style={{padding:"10px 4px",fontSize:11,fontWeight:800,color:"#f59e0b",fontFamily:FM,textAlign:"right"}}>{fmtN(staffList.reduce((s,e)=>{const c=calcSalary(e);return s+(c.configured?c.usdt:0)},0))}</td>
             <td></td>
@@ -1048,7 +1087,7 @@ function EmpF({emp,curRole,dais,onSave,onCancel}){
     <div style={{display:"grid",gridTemplateColumns:isE?"1fr 1fr 1fr":"1fr 1fr",gap:8}}>
       <DateInp label={t.fJoin}value={f.joinDate}onChange={e=>s("joinDate",e.target.value)}/>
       <DateInp label={t.fTrans}value={f.transferDate||""}onChange={e=>s("transferDate",e.target.value)}/>
-      {isE&&<Sel label={t.fSt}value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:t.stA},{v:"inactive",l:t.stI}]}/>}
+      {isE&&<Sel label={t.fSt}value={f.status}onChange={e=>s("status",e.target.value)}options={[{v:"active",l:t.stA},{v:"inactive",l:t.stI},{v:"resigned",l:t.stR}]}/>}
     </div>
     {!isE&&<div style={{padding:"12px 14px",borderRadius:10,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:11}}>
       <div style={{fontSize:10,color:Cl.ac,fontWeight:700,marginBottom:6}}>🔑 Tài khoản đăng nhập</div>

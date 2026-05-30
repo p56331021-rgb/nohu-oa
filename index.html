@@ -977,7 +977,7 @@ function SalaryP({emps,leaves,pens,cur,dais,salCfg,onSaveCfg}){
               <td style={{padding:"6px 4px",fontSize:10,fontFamily:FM,textAlign:"right",color:"#f59e0b",fontWeight:700}}>{fmtN(s.usdt)}</td>
               <td style={{padding:"6px 4px"}}><button onClick={()=>sShowDetail(showDetail===e.id?null:e.id)}style={{background:"none",border:`1px solid ${Cl.bdr}`,borderRadius:4,color:Cl.mu,cursor:"pointer",fontSize:9,padding:"2px 5px"}}>📋</button></td>
             </React.Fragment>}
-          </tr>)}
+          </tr>})}
           {/* Detail row */}
           {staffList.map(e=>{if(showDetail!==e.id)return null;const s=calcSalary(e);if(!s||!s.configured)return null;
           return<tr key={`d-${e.id}`}><td colSpan={14}style={{padding:"10px 12px",background:Cl.bg,borderBottom:`2px solid ${Cl.bdr}`}}>

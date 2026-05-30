@@ -492,12 +492,17 @@ function EmpP({emps,cur,dais,onEdit,onAdd,onDel}){
 }
 
 // ============ LEAVES ============
-function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
+function LeaveP({emps,leaves,pens,cur,dais,onAdd,onDel,onAddPen,onDelPen}){
   const t=useT();const lg=useContext(LC);const mg=canMg(cur.role);const isA=cur.role==="admin";
   const[selE,sSE]=useState("");const[month,sM]=useState(td().slice(0,7));
   const[addM,sAM]=useState(false);const[penM,sPM]=useState(false);const[dayM,sDM]=useState(null);
-  const vE=cur.role==="staff"?emps.filter(e=>e.id===cur.id):emps.filter(e=>isA||e.role!=="admin");
-  const mL=leaves.filter(l=>l.date.startsWith(month));const dL=selE?mL.filter(l=>l.empId===selE):mL;
+  // CSKH only sees own đài+ca; managers see all
+  const vE=cur.role==="staff"?emps.filter(e=>e.dai===cur.dai&&e.shift===cur.shift&&e.status==="active"):emps.filter(e=>isA||e.role!=="admin");
+  const vEIds=new Set(vE.map(e=>e.id));
+  const mL=leaves.filter(l=>l.date.startsWith(month)&&vEIds.has(l.empId));const dL=selE?mL.filter(l=>l.empId===selE):mL;
+  // Modal filters
+  const[mfDai,sMfDai]=useState("all");const[mfSh,sMfSh]=useState("all");const[xlM,sXlM]=useState(false);const[xlResult,sXlResult]=useState(null);
+  const filteredEmpList=useMemo(()=>vE.filter(e=>{if(e.status!=="active")return false;if(mfDai!=="all"&&e.dai!==mfDai)return false;if(mfSh!=="all"&&e.shift!==Number(mfSh))return false;return true}),[vE,mfDai,mfSh]);
   const[y,m]=month.split("-").map(Number);const dim=new Date(y,m,0).getDate();const fd=new Date(y,m-1,1).getDay();
 
   // Batch add form
@@ -606,7 +611,12 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
 
     {/* Batch Leave Modal */}
     <Mod open={addM}onClose={()=>sAM(false)}title="📅 Thêm lịch nghỉ hàng loạt" wide>
-      <Sel label={t.selEmp}value={af.empId}onChange={e=>sAF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode} — ${e.dai||""}`}))}/>
+      {/* Filters */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        <Sel label="Đài" value={mfDai} onChange={e=>sMfDai(e.target.value)} options={[{v:"all",l:"Tất cả đài"},...(dais||[]).map(d=>({v:d,l:"🎰 "+d}))]}/>
+        <Sel label="Ca" value={mfSh} onChange={e=>sMfSh(e.target.value)} options={[{v:"all",l:"Tất cả ca"},...Object.entries(SH).filter(([k])=>Number(k)>0).map(([k,v])=>({v:k,l:v.icon+" "+v.label[lg]}))]}/>
+      </div>
+      <Sel label={t.selEmp}value={af.empId}onChange={e=>sAF(p=>({...p,empId:e.target.value}))}options={filteredEmpList.map(e=>({v:e.id,l:`${e.name} — ${e.empCode} — ${e.dai||""} — Ca ${e.shift||""}`}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignItems:"end"}}>
         <div><label style={{display:"block",fontSize:10,color:Cl.mu,marginBottom:3,fontWeight:600}}>{t.batchMonth}</label><MonthNav value={af.month||month} onChange={v=>sAF(p=>({...p,month:v}))}/></div>
         <Inp label={t.batchDays} value={af.days||""} onChange={e=>sAF(p=>({...p,days:e.target.value}))} placeholder="VD: 3.8.15.26"/>
@@ -621,6 +631,7 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
       </div>}
       <div style={{display:"flex",gap:6,justifyContent:"flex-end",marginTop:14}}>
         <Btn v="ghost"onClick={()=>sAM(false)}>{t.cancel}</Btn>
+        <Btn v="warn"onClick={()=>{sAM(false);sXlM(true);sXlResult(null)}}>📥 Upload Excel</Btn>
         <Btn v="success"onClick={()=>{
           if(!af.empId)return;
           const mo=af.month||month;
@@ -634,7 +645,11 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
 
     {/* Penalty Modal */}
     <Mod open={penM}onClose={()=>sPM(false)}title={`⚠️ ${t.addPen}`}>
-      <Sel label={t.selEmp}value={pf.empId}onChange={e=>sPF(p=>({...p,empId:e.target.value}))}options={vE.filter(e=>e.status==="active").map(e=>({v:e.id,l:`${e.name} — ${e.empCode}`}))}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+        <Sel label="Đài" value={mfDai} onChange={e=>sMfDai(e.target.value)} options={[{v:"all",l:"Tất cả đài"},...(dais||[]).map(d=>({v:d,l:"🎰 "+d}))]}/>
+        <Sel label="Ca" value={mfSh} onChange={e=>sMfSh(e.target.value)} options={[{v:"all",l:"Tất cả ca"},...Object.entries(SH).filter(([k])=>Number(k)>0).map(([k,v])=>({v:k,l:v.icon+" "+v.label[lg]}))]}/>
+      </div>
+      <Sel label={t.selEmp}value={pf.empId}onChange={e=>sPF(p=>({...p,empId:e.target.value}))}options={filteredEmpList.map(e=>({v:e.id,l:`${e.name} — ${e.empCode} — ${e.dai||""}`}))}/>
       <DateInp label={t.penDate}value={pf.date}onChange={e=>sPF(p=>({...p,date:e.target.value}))}/>
       <Inp label={t.penKpi}type="number"value={pf.kpi}onChange={e=>sPF(p=>({...p,kpi:Number(e.target.value)}))}/>
       <Inp label={t.penReason}value={pf.reason}onChange={e=>sPF(p=>({...p,reason:e.target.value}))}placeholder="Nhập lý do..."/>
@@ -646,6 +661,67 @@ function LeaveP({emps,leaves,pens,cur,onAdd,onDel,onAddPen,onDelPen}){
           sPM(false);
         }}>✓ {t.confirm}</Btn>
       </div>
+    </Mod>
+
+    {/* Excel Upload Modal */}
+    <Mod open={xlM}onClose={()=>sXlM(false)}title="📥 Upload Excel nghỉ" wide>
+      <div style={{padding:"10px 12px",borderRadius:8,background:`${Cl.ac}08`,border:`1px solid ${Cl.ac}18`,marginBottom:12,fontSize:10,color:Cl.mu,lineHeight:1.5}}>
+        📌 Cột Excel: <b>STT | Tên nhân viên | Đài | Ca | Tháng | Ngày nghỉ</b><br/>
+        Ngày nghỉ phân cách bằng dấu chấm (VD: 3.8.15.26). Hệ thống match theo tên NV.
+      </div>
+      <input type="file"accept=".xlsx,.xls"onChange={e=>{
+        const file=e.target.files[0];if(!file)return;
+        const reader=new FileReader();
+        reader.onload=ev=>{
+          try{
+            const wb=XLSX.read(ev.target.result,{type:"binary"});
+            const ws=wb.Sheets[wb.SheetNames[0]];
+            const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+            const results=[];let matched=0,skipped=0;
+            for(let i=1;i<rows.length;i++){
+              const row=rows[i];if(!row||!row[1])continue;
+              const name=(row[1]||"").toString().trim();
+              const mo=String(row[4]||m).padStart(2,"0");
+              const days=(row[5]||"").toString();
+              const emp=emps.find(x=>x.name.toLowerCase()===name.toLowerCase());
+              if(!emp){skipped++;results.push({name,status:"❌ Không tìm thấy NV"});continue}
+              const dayList=days.split(/[.,\s]+/).filter(d=>d&&!isNaN(d)&&Number(d)>=1&&Number(d)<=31);
+              if(!dayList.length){skipped++;results.push({name,status:"⚠️ Không có ngày"});continue}
+              matched++;
+              const moStr=`${y}-${mo}`;
+              results.push({name,emp,moStr,dayList,status:`✅ ${dayList.length} ngày`});
+            }
+            sXlResult({results,matched,skipped});
+          }catch(err){alert("Lỗi đọc file: "+err.message)}
+        };
+        reader.readAsBinaryString(file);
+      }}style={{marginBottom:12,color:Cl.tx,fontSize:11}}/>
+      {xlResult&&<div>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <span style={{fontSize:11,color:Cl.ok,fontWeight:700}}>✅ Match: {xlResult.matched}</span>
+          <span style={{fontSize:11,color:Cl.no,fontWeight:700}}>❌ Skip: {xlResult.skipped}</span>
+        </div>
+        <div style={{maxHeight:200,overflow:"auto",marginBottom:12}}>
+          {xlResult.results.map((r,i)=><div key={i}style={{display:"flex",justifyContent:"space-between",padding:"4px 8px",borderRadius:6,background:Cl.bg,marginBottom:2,border:`1px solid ${Cl.bdr}`,fontSize:10}}>
+            <span style={{color:Cl.tx,fontWeight:600}}>{r.name}</span>
+            <span style={{color:r.status.startsWith("✅")?Cl.ok:Cl.no}}>{r.status}{r.dayList?` (${r.dayList.join(".")})`:"" }</span>
+          </div>)}
+        </div>
+        <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+          <Btn v="ghost"onClick={()=>sXlM(false)}>{t.cancel}</Btn>
+          <Btn v="success"onClick={()=>{
+            let count=0;
+            xlResult.results.forEach(r=>{
+              if(!r.emp||!r.dayList)return;
+              r.dayList.forEach(d=>{
+                const ds=`${r.moStr}-${String(d).padStart(2,"0")}`;
+                onAdd({empId:r.emp.id,date:ds,reason:"Nghỉ phép",addedBy:cur.id});count++;
+              });
+            });
+            alert(`Đã thêm ${count} lượt nghỉ!`);sXlM(false);sXlResult(null);
+          }}>✓ Xác nhận thêm {xlResult.matched} NV</Btn>
+        </div>
+      </div>}
     </Mod>
 
     {/* Day detail Modal — click on calendar day */}
@@ -1232,7 +1308,7 @@ function App(){
         <div style={{padding:20,flex:1,overflow:"auto"}}>
           {page==="dashboard"&&<DashP emps={emps}leaves={leaves}cur={cur}dais={dais}/>}
           {page==="employees"&&<EmpP emps={emps}cur={cur}dais={dais}onEdit={e=>sEM(e)}onAdd={()=>sAM(true)}onDel={delEmp}/>}
-          {page==="leaves"&&<LeaveP emps={emps}leaves={leaves}pens={pens}cur={cur}onAdd={addLv}onDel={delLv}onAddPen={addPen}onDelPen={delPen}/>}
+          {page==="leaves"&&<LeaveP emps={emps}leaves={leaves}pens={pens}cur={cur}dais={dais}onAdd={addLv}onDel={delLv}onAddPen={addPen}onDelPen={delPen}/>}
           {page==="salary"&&<SalaryP emps={emps}leaves={leaves}pens={pens}cur={cur}dais={dais}salCfg={salCfg}onSaveCfg={saveSalCfg}/>}
           {page==="perms"&&<PermP cur={cur}/>}
           {page==="accounts"&&canMg(cur.role)&&<AcctP accts={accts}emps={emps}cur={cur}onReset={resetPw}/>}
